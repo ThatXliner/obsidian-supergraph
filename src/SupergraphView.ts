@@ -59,7 +59,6 @@ interface DisplaySettings {
 	nodeSize: number;
 	linkThickness: number;
 	showArrows: boolean;
-	textFadeThreshold: number;
 	showOrphans: boolean;
 	cardWidth: number;
 	cardHeight: number;
@@ -86,7 +85,6 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 	nodeSize: 15,
 	linkThickness: 0.3,
 	showArrows: false,
-	textFadeThreshold: 0.5,
 	showOrphans: true,
 	cardWidth: 200,
 	cardHeight: 120,
@@ -229,20 +227,6 @@ export class SupergraphView extends ItemView {
 					this.display.showArrows,
 					(val) => {
 						this.display.showArrows = val;
-						this.updateStyles();
-					},
-				);
-
-				this.createSlider(
-					content,
-					"Text fade threshold",
-					0,
-					2,
-					0.1,
-					this.display.textFadeThreshold,
-					DEFAULT_DISPLAY.textFadeThreshold,
-					(val) => {
-						this.display.textFadeThreshold = val;
 						this.updateStyles();
 					},
 				);
@@ -535,22 +519,6 @@ export class SupergraphView extends ItemView {
 					: "none",
 			})
 			.update();
-
-		// Update card visibility based on zoom
-		this.updateCardVisibility();
-	}
-
-	private updateCardVisibility(): void {
-		if (!this.cy) return;
-
-		const zoom = this.cy.zoom();
-		const shouldShowCards = zoom > this.display.textFadeThreshold;
-
-		// Update CSS variable for card visibility
-		const cards = document.querySelectorAll(".supergraph-card");
-		cards.forEach((card) => {
-			(card as HTMLElement).style.opacity = shouldShowCards ? "1" : "0";
-		});
 	}
 
 	private restartLayout(): void {
@@ -636,11 +604,6 @@ export class SupergraphView extends ItemView {
 		// Save state on pan (debounced to avoid excessive saves)
 		this.cy.on("pan", () => {
 			this.saveGraphStateDebounced();
-		});
-
-		// Update card visibility on zoom
-		this.cy.on("zoom", () => {
-			this.updateCardVisibility();
 		});
 	}
 
