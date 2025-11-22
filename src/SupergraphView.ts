@@ -1,11 +1,11 @@
 import { ItemView, TFile, WorkspaceLeaf, debounce } from 'obsidian';
 import cytoscape, { Core, EventObject } from 'cytoscape';
 // @ts-ignore - no types available
-import cola from 'cytoscape-cola';
+import d3Force from 'cytoscape-d3-force';
 import { GraphState, GraphNode, GraphEdge } from './types';
 import SupergraphPlugin from '../main';
 
-cytoscape.use(cola);
+cytoscape.use(d3Force);
 
 export const VIEW_TYPE_SUPERGRAPH = 'supergraph-view';
 
@@ -38,7 +38,7 @@ const DEFAULT_FORCES: ForceSettings = {
 	centerForce: 0.3,
 	repelForce: 5,
 	linkForce: 0.3,
-	linkDistance: 50
+	linkDistance: 80
 };
 
 export class SupergraphView extends ItemView {
@@ -497,25 +497,43 @@ export class SupergraphView extends ItemView {
 			this.layout.stop();
 		}
 
-		// Node spacing adds padding around nodes to prevent overlap
-		const nodeSpacing = this.display.nodeSize + this.forces.repelForce;
+		const centerX = (this.graphContainer?.clientWidth || 800) / 2;
+		const centerY = (this.graphContainer?.clientHeight || 600) / 2;
+
+		// Scale repel force to a negative value for manyBody
+		const repelStrength = -this.forces.repelForce * 30;
+
+		// Minimum link distance to create some "repulsion" on edges
+		const minLinkDistance = Math.max(this.forces.linkDistance, 30);
 
 		this.layout = this.cy.layout({
-			name: 'cola',
+			name: 'd3-force',
 			animate: true,
-			infinite: true,
+			fixedAfterDragging: false,
+			ungrabifyWhileSimulating: false,
 			fit: false,
-			randomize: false,
-			nodeSpacing: nodeSpacing,
-			edgeLength: this.forces.linkDistance,
-			handleDisconnected: true,
-			convergenceThreshold: 0.00001,
-			// @ts-ignore - cola specific options
-			avoidOverlap: true,
-			centerGraph: this.forces.centerForce > 0.5,
-			unconstrIter: 5,
-			userConstIter: 0,
-			allConstIter: 5,
+			// @ts-ignore - d3-force specific options
+			alpha: 1,
+			alphaMin: 0.001,
+			alphaDecay: 0.01,
+			alphaTarget: 0.02,
+			velocityDecay: 0.4,
+			// Collision force - prevents overlap
+			collideRadius: this.display.nodeSize * 2,
+			collideStrength: 1,
+			// Many-body force - repulsion between all nodes
+			manyBodyStrength: repelStrength,
+			manyBodyDistanceMin: 10,
+			manyBodyDistanceMax: 1000,
+			// Link force - use high strength to enforce distance (acts like spring with min length)
+			linkId: function(d: any) { return d.id; },
+			linkDistance: minLinkDistance,
+			linkStrength: this.forces.linkForce * 0.5,
+			// Center force - pulls toward center
+			xStrength: this.forces.centerForce * 0.05,
+			xX: centerX,
+			yStrength: this.forces.centerForce * 0.05,
+			yY: centerY,
 		} as cytoscape.LayoutOptions);
 
 		this.layout.run();
