@@ -530,9 +530,9 @@ export class SupergraphView extends ItemView {
 			linkDistance: minLinkDistance,
 			linkStrength: this.forces.linkForce * 0.5,
 			// Center force - pulls toward center
-			xStrength: this.forces.centerForce * 0.05,
+			xStrength: this.forces.centerForce * 0.3,
 			xX: centerX,
-			yStrength: this.forces.centerForce * 0.05,
+			yStrength: this.forces.centerForce * 0.3,
 			yY: centerY,
 		} as cytoscape.LayoutOptions);
 
