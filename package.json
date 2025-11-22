@@ -1,17 +1,23 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "obsidian-supergraph",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "A zoomable graph view for Obsidian showing all notes as interactive cards",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": [],
-	"author": "",
+	"keywords": [
+		"obsidian",
+		"graph",
+		"visualization",
+		"cytoscape"
+	],
+	"author": "ThatXliner",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/cytoscape": "^3.21.9",
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
@@ -20,5 +26,11 @@
 		"obsidian": "latest",
 		"tslib": "2.4.0",
 		"typescript": "4.7.4"
+	},
+	"dependencies": {
+		"cytoscape": "^3.33.1",
+		"cytoscape-cola": "^2.5.1",
+		"cytoscape-d3-force": "^1.1.4",
+		"d3-force": "^3.0.0"
 	}
 }
