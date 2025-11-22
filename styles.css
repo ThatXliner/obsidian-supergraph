@@ -6,3 +6,28 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.supergraph-view-container {
+	height: 100%;
+	width: 100%;
+	position: relative;
+	overflow: hidden;
+}
+
+.supergraph-canvas {
+	height: 100%;
+	width: 100%;
+	background-color: var(--background-primary);
+}
+
+/* Cytoscape canvas styling */
+.supergraph-canvas canvas {
+	display: block;
+}
+
+/* Override Obsidian default styles to ensure graph is visible */
+.workspace-leaf-content[data-type='supergraph-view'] .view-content {
+	padding: 0;
+	height: 100%;
+}
+

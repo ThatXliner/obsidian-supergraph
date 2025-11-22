@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "obsidian-supergraph",
+	"name": "Supergraph",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "A zoomable graph view showing all notes as interactive cards with title and snippet previews",
+	"author": "ThatXliner",
+	"authorUrl": "https://github.com/ThatXliner",
 	"isDesktopOnly": false
 }
