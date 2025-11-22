@@ -277,3 +277,48 @@ Supergraph Plugin Styles
 	padding: 0;
 	height: 100%;
 }
+
+/* Card Preview Nodes */
+.supergraph-card {
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	padding: 12px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	cursor: pointer;
+	transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+	box-sizing: border-box;
+}
+
+.supergraph-card:hover {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.supergraph-card-title {
+	font-weight: 600;
+	font-size: 13px;
+	color: var(--text-normal);
+	margin-bottom: 8px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex-shrink: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	padding-bottom: 8px;
+}
+
+.supergraph-card-content {
+	font-size: 11px;
+	color: var(--text-muted);
+	line-height: 1.4;
+	overflow: hidden;
+	flex: 1;
+	/* Clamp to available lines */
+	display: -webkit-box;
+	-webkit-line-clamp: 5;
+	-webkit-box-orient: vertical;
+}

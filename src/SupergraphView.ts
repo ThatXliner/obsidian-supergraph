@@ -2,10 +2,13 @@ import { ItemView, TFile, WorkspaceLeaf, debounce } from "obsidian";
 import cytoscape, { Core, EventObject } from "cytoscape";
 // @ts-ignore - no types available
 import d3Force from "cytoscape-d3-force";
+// @ts-ignore - no types available
+import nodeHtmlLabel from "cytoscape-node-html-label";
 import { GraphState, GraphNode, GraphEdge } from "./types";
 import SupergraphPlugin from "../main";
 
 cytoscape.use(d3Force);
+nodeHtmlLabel(cytoscape);
 
 export const VIEW_TYPE_SUPERGRAPH = "supergraph-view";
 
@@ -58,6 +61,9 @@ interface DisplaySettings {
 	showArrows: boolean;
 	textFadeThreshold: number;
 	showOrphans: boolean;
+	cardWidth: number;
+	cardHeight: number;
+	snippetLength: number;
 }
 
 /**
@@ -82,6 +88,9 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 	showArrows: false,
 	textFadeThreshold: 0.5,
 	showOrphans: true,
+	cardWidth: 200,
+	cardHeight: 120,
+	snippetLength: 150,
 };
 
 const DEFAULT_FORCES: ForceSettings = {
@@ -240,15 +249,48 @@ export class SupergraphView extends ItemView {
 
 				this.createSlider(
 					content,
-					"Node size",
-					3,
-					30,
-					1,
-					this.display.nodeSize,
-					DEFAULT_DISPLAY.nodeSize,
+					"Card width",
+					100,
+					400,
+					10,
+					this.display.cardWidth,
+					DEFAULT_DISPLAY.cardWidth,
 					(val) => {
-						this.display.nodeSize = val;
+						this.display.cardWidth = val;
 						this.updateStyles();
+						// Reload graph to update HTML labels
+						this.loadGraphData();
+					},
+				);
+
+				this.createSlider(
+					content,
+					"Card height",
+					60,
+					300,
+					10,
+					this.display.cardHeight,
+					DEFAULT_DISPLAY.cardHeight,
+					(val) => {
+						this.display.cardHeight = val;
+						this.updateStyles();
+						// Reload graph to update HTML labels
+						this.loadGraphData();
+					},
+				);
+
+				this.createSlider(
+					content,
+					"Snippet length",
+					50,
+					500,
+					10,
+					this.display.snippetLength,
+					DEFAULT_DISPLAY.snippetLength,
+					(val) => {
+						this.display.snippetLength = val;
+						// Reload graph to update snippets
+						this.loadGraphData();
 					},
 				);
 
@@ -482,10 +524,8 @@ export class SupergraphView extends ItemView {
 			.style()
 			.selector("node")
 			.style({
-				width: this.display.nodeSize,
-				height: this.display.nodeSize,
-				"text-opacity":
-					this.cy.zoom() > this.display.textFadeThreshold ? 1 : 0,
+				width: this.display.cardWidth,
+				height: this.display.cardHeight,
 			})
 			.selector("edge")
 			.style({
@@ -495,6 +535,22 @@ export class SupergraphView extends ItemView {
 					: "none",
 			})
 			.update();
+
+		// Update card visibility based on zoom
+		this.updateCardVisibility();
+	}
+
+	private updateCardVisibility(): void {
+		if (!this.cy) return;
+
+		const zoom = this.cy.zoom();
+		const shouldShowCards = zoom > this.display.textFadeThreshold;
+
+		// Update CSS variable for card visibility
+		const cards = document.querySelectorAll(".supergraph-card");
+		cards.forEach((card) => {
+			(card as HTMLElement).style.opacity = shouldShowCards ? "1" : "0";
+		});
 	}
 
 	private restartLayout(): void {
@@ -525,16 +581,13 @@ export class SupergraphView extends ItemView {
 				{
 					selector: "node",
 					style: {
-						"background-color": "var(--interactive-accent)",
-						label: "data(label)",
-						width: this.display.nodeSize,
-						height: this.display.nodeSize,
-						"font-size": 11,
-						"text-valign": "bottom",
-						"text-halign": "center",
-						"text-margin-y": 5,
-						color: "var(--text-muted)",
-						shape: "ellipse",
+						"background-color": "transparent",
+						"background-opacity": 0,
+						width: this.display.cardWidth,
+						height: this.display.cardHeight,
+						shape: "rectangle",
+						// Hide the default label since we're using HTML labels
+						label: "",
 					},
 				},
 				{
@@ -565,6 +618,9 @@ export class SupergraphView extends ItemView {
 			wheelSensitivity: 0.3,
 		});
 
+		// Register HTML node labels for card rendering
+		this.initializeNodeHtmlLabels();
+
 		// Save positions when nodes are dragged (debounced to avoid excessive saves)
 		this.cy.on("dragfree", "node", () => {
 			this.saveGraphStateDebounced();
@@ -581,6 +637,42 @@ export class SupergraphView extends ItemView {
 		this.cy.on("pan", () => {
 			this.saveGraphStateDebounced();
 		});
+
+		// Update card visibility on zoom
+		this.cy.on("zoom", () => {
+			this.updateCardVisibility();
+		});
+	}
+
+	private initializeNodeHtmlLabels(): void {
+		if (!this.cy) return;
+
+		// @ts-ignore - nodeHtmlLabel extension
+		this.cy.nodeHtmlLabel([
+			{
+				query: "node",
+				halign: "center",
+				valign: "center",
+				halignBox: "center",
+				valignBox: "center",
+				tpl: (data: { id: string; label: string; snippet: string }) => {
+					const escapedLabel = this.escapeHtml(data.label);
+					const escapedSnippet = this.escapeHtml(data.snippet || "");
+					return `
+						<div class="supergraph-card" style="width: ${this.display.cardWidth}px; height: ${this.display.cardHeight}px;">
+							<div class="supergraph-card-title">${escapedLabel}</div>
+							<div class="supergraph-card-content">${escapedSnippet}</div>
+						</div>
+					`;
+				},
+			},
+		]);
+	}
+
+	private escapeHtml(text: string): string {
+		const div = document.createElement("div");
+		div.textContent = text;
+		return div.innerHTML;
 	}
 
 	private async loadGraphData(): Promise<void> {
@@ -588,12 +680,15 @@ export class SupergraphView extends ItemView {
 		const nodes: GraphNode[] = [];
 		const edges: GraphEdge[] = [];
 
-		// Create nodes from files
+		// Create nodes from files (async to load content snippets)
+		const nodePromises: Promise<GraphNode>[] = [];
 		for (const file of files) {
 			if (this.shouldIncludeFile(file)) {
-				nodes.push(this.createNodeFromFile(file));
+				nodePromises.push(this.createNodeFromFile(file));
 			}
 		}
+		const loadedNodes = await Promise.all(nodePromises);
+		nodes.push(...loadedNodes);
 
 		// Create edges from links
 		if (this.plugin.settings.showLinks) {
@@ -656,11 +751,37 @@ export class SupergraphView extends ItemView {
 		return true;
 	}
 
-	private createNodeFromFile(file: TFile): GraphNode {
+	private async createNodeFromFile(file: TFile): Promise<GraphNode> {
+		let snippet = "";
+		try {
+			const content = await this.app.vault.cachedRead(file);
+			// Remove frontmatter if present
+			let cleanContent = content;
+			if (cleanContent.startsWith("---")) {
+				const endIndex = cleanContent.indexOf("---", 3);
+				if (endIndex !== -1) {
+					cleanContent = cleanContent.slice(endIndex + 3).trim();
+				}
+			}
+			// Remove headings, links, and formatting for cleaner preview
+			cleanContent = cleanContent
+				.replace(/^#+\s+/gm, "") // Remove headings
+				.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1") // Convert [[link]] to text
+				.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Convert [text](url) to text
+				.replace(/[*_~`]/g, "") // Remove formatting
+				.replace(/\n+/g, " ") // Replace newlines with spaces
+				.trim();
+			snippet = cleanContent.slice(0, this.display.snippetLength);
+			if (cleanContent.length > this.display.snippetLength) {
+				snippet += "...";
+			}
+		} catch (e) {
+			// Ignore read errors, leave snippet empty
+		}
 		return {
 			id: file.path,
 			label: file.basename,
-			snippet: "",
+			snippet,
 		};
 	}
 
@@ -764,8 +885,11 @@ export class SupergraphView extends ItemView {
 			this.forces.linkForce * PHYSICS.LINK_STRENGTH_MULTIPLIER;
 		const centerStrength =
 			this.forces.centerForce * PHYSICS.CENTER_MULTIPLIER;
-		const collideRadius =
-			this.display.nodeSize * PHYSICS.COLLIDE_RADIUS_MULTIPLIER;
+		// Use the larger dimension for collision radius to prevent overlap
+		const cardDiagonal = Math.sqrt(
+			this.display.cardWidth ** 2 + this.display.cardHeight ** 2,
+		);
+		const collideRadius = cardDiagonal / 2;
 
 		this.layout = this.cy.layout({
 			name: "d3-force",
