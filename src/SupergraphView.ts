@@ -28,9 +28,9 @@ export const VIEW_TYPE_SUPERGRAPH = "supergraph-view";
 const PHYSICS = {
 	// Simulation parameters (control how the simulation runs)
 	ALPHA_START: 1, // Initial energy of the simulation
-	ALPHA_MIN: 0.001, // Minimum energy before simulation stops
-	ALPHA_DECAY: 0.01, // How quickly simulation cools down
-	ALPHA_TARGET: 0.02, // Target energy to maintain (keeps simulation gently active)
+	ALPHA_MIN: 0.01, // Minimum energy before simulation stops
+	ALPHA_DECAY: 0.02, // How quickly simulation cools down (higher = faster settling)
+	ALPHA_TARGET: 0, // Target energy (0 = simulation settles to rest)
 	VELOCITY_DECAY: 0.4, // Friction - higher = more damping
 
 	// Force multipliers (scale user-configurable slider values to d3-force values)
@@ -588,6 +588,11 @@ export class SupergraphView extends ItemView {
 
 		// Register HTML node labels for card rendering
 		this.initializeNodeHtmlLabels();
+
+		// Restart simulation when dragging starts (so other nodes react)
+		this.cy.on("grab", "node", () => {
+			this.restartLayout();
+		});
 
 		// Save positions when nodes are dragged (debounced to avoid excessive saves)
 		this.cy.on("dragfree", "node", () => {
