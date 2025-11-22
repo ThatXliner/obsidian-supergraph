@@ -83,8 +83,8 @@ interface ForceSettings {
 
 const DEFAULT_DISPLAY: DisplaySettings = {
 	nodeSize: 15,
-	linkThickness: 0.3,
-	showArrows: false,
+	linkThickness: 3,
+	showArrows: true,
 	showOrphans: true,
 	cardWidth: 200,
 	cardHeight: 120,
@@ -93,9 +93,9 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 
 const DEFAULT_FORCES: ForceSettings = {
 	centerForce: 0.3, // Moderate pull toward center
-	repelForce: 4, // Results in manyBodyStrength of -240 (4 * 60)
+	repelForce: 30, // Results in manyBodyStrength of -240 (4 * 60)
 	linkForce: 0.3, // Results in linkStrength of 0.09 (0.3 * 0.3)
-	linkDistance: 80, // Target 80px between connected nodes
+	linkDistance: 100, // Target 80px between connected nodes
 };
 
 export class SupergraphView extends ItemView {
