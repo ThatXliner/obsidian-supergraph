@@ -106,6 +106,7 @@ export class SupergraphView extends ItemView {
 	private saveViewSettingsDebounced: () => void;
 	private layout: cytoscape.Layouts | null = null;
 	private settingsPanel: HTMLElement | null = null;
+	private settingsToggle: HTMLElement | null = null;
 	private display: DisplaySettings = { ...DEFAULT_DISPLAY };
 	private forces: ForceSettings = { ...DEFAULT_FORCES };
 
@@ -151,7 +152,16 @@ export class SupergraphView extends ItemView {
 		// Graph canvas
 		this.graphContainer = wrapper.createDiv({ cls: "supergraph-canvas" });
 
-		// Settings panel (right side)
+		// Settings toggle button
+		this.settingsToggle = wrapper.createDiv({
+			cls: "supergraph-settings-toggle is-active",
+		});
+		this.settingsToggle.innerHTML = "⚙";
+		this.settingsToggle.addEventListener("click", () =>
+			this.toggleSettings(),
+		);
+
+		// Floating settings panel
 		this.settingsPanel = wrapper.createDiv({ cls: "supergraph-settings" });
 		this.buildSettingsPanel();
 
@@ -159,12 +169,20 @@ export class SupergraphView extends ItemView {
 		await this.loadGraphData();
 	}
 
+	private toggleSettings(): void {
+		if (!this.settingsPanel || !this.settingsToggle) return;
+
+		const isHidden = this.settingsPanel.hasClass("is-hidden");
+		this.settingsPanel.toggleClass("is-hidden", !isHidden);
+		this.settingsToggle.toggleClass("is-active", isHidden);
+	}
+
 	private buildSettingsPanel(): void {
 		if (!this.settingsPanel) return;
 
-		// Header with reset view and reset settings buttons
+		// Header with reset view, reset settings, and close buttons
 		const header = this.settingsPanel.createDiv({ cls: "settings-header" });
-		header.createSpan({ text: "Settings", cls: "settings-title" });
+		header.createSpan({ text: "Filters", cls: "settings-title" });
 		const headerActions = header.createDiv({
 			cls: "settings-header-actions",
 		});
@@ -182,6 +200,13 @@ export class SupergraphView extends ItemView {
 		});
 		resetSettingsBtn.innerHTML = "&#8635;"; // Refresh icon
 		resetSettingsBtn.addEventListener("click", () => this.resetSettings());
+
+		const closeBtn = headerActions.createEl("button", {
+			cls: "settings-reset-btn",
+			attr: { "aria-label": "Close" },
+		});
+		closeBtn.innerHTML = "&#10005;"; // X icon
+		closeBtn.addEventListener("click", () => this.toggleSettings());
 
 		// Search
 		const searchContainer = this.settingsPanel.createDiv({

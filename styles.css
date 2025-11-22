@@ -13,6 +13,7 @@ Supergraph Plugin Styles
 	display: flex;
 	height: 100%;
 	width: 100%;
+	position: relative;
 }
 
 .supergraph-canvas {
@@ -25,14 +26,54 @@ Supergraph Plugin Styles
 	display: block;
 }
 
-/* Settings Panel */
-.supergraph-settings {
-	width: 280px;
-	height: 100%;
+/* Settings Toggle Button */
+.supergraph-settings-toggle {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	width: 32px;
+	height: 32px;
 	background-color: var(--background-primary);
-	border-left: 1px solid var(--background-modifier-border);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+	font-size: 18px;
+	z-index: 10;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.supergraph-settings-toggle:hover {
+	background-color: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.supergraph-settings-toggle.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+/* Settings Panel - Floating */
+.supergraph-settings {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	width: 280px;
+	max-height: calc(100% - 24px);
+	background-color: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
 	overflow-y: auto;
-	flex-shrink: 0;
+	z-index: 20;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.supergraph-settings.is-hidden {
+	display: none;
 }
 
 .settings-header {
