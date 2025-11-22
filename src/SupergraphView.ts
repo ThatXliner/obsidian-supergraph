@@ -9,37 +9,49 @@ cytoscape.use(d3Force);
 
 export const VIEW_TYPE_SUPERGRAPH = "supergraph-view";
 
-// Layout physics constants
+/**
+ * Physics constants for the d3-force simulation.
+ *
+ * These constants are NOT user-configurable. They define the underlying physics
+ * behavior and are multiplied with user settings (DEFAULT_FORCES) to produce
+ * the final force values.
+ *
+ * Final force calculation examples:
+ *   - repelStrength = -repelForce * REPEL_MULTIPLIER     (e.g., -4 * 60 = -240)
+ *   - centerStrength = centerForce * CENTER_MULTIPLIER  (e.g., 0.3 * 0.3 = 0.09)
+ *   - linkStrength = linkForce * LINK_STRENGTH_MULTIPLIER (e.g., 0.3 * 0.3 = 0.09)
+ *   - collideRadius = nodeSize * COLLIDE_RADIUS_MULTIPLIER (e.g., 10 * 2 = 20)
+ */
 const PHYSICS = {
-	// Simulation
-	ALPHA_START: 1,
-	ALPHA_MIN: 0.001,
-	ALPHA_DECAY: 0.01,
-	ALPHA_TARGET: 0.02,
-	VELOCITY_DECAY: 0.4,
+	// Simulation parameters (control how the simulation runs)
+	ALPHA_START: 1, // Initial energy of the simulation
+	ALPHA_MIN: 0.001, // Minimum energy before simulation stops
+	ALPHA_DECAY: 0.01, // How quickly simulation cools down
+	ALPHA_TARGET: 0.02, // Target energy to maintain (keeps simulation gently active)
+	VELOCITY_DECAY: 0.4, // Friction - higher = more damping
 
-	// Force multipliers (applied to user-configurable values)
-	REPEL_MULTIPLIER: 60,
-	CENTER_MULTIPLIER: 0.3,
-	LINK_STRENGTH_MULTIPLIER: 0.3,
-	COLLIDE_RADIUS_MULTIPLIER: 2,
+	// Force multipliers (scale user-configurable slider values to d3-force values)
+	REPEL_MULTIPLIER: 60, // Multiplied with repelForce for manyBodyStrength
+	CENTER_MULTIPLIER: 0.3, // Multiplied with centerForce for x/yStrength
+	LINK_STRENGTH_MULTIPLIER: 0.3, // Multiplied with linkForce for linkStrength
+	COLLIDE_RADIUS_MULTIPLIER: 2, // Multiplied with nodeSize for collision radius
 
-	// Force limits
-	MANY_BODY_DISTANCE_MIN: 10,
-	MANY_BODY_DISTANCE_MAX: 1000,
-	MIN_LINK_DISTANCE: 30,
-	COLLIDE_STRENGTH: 1,
+	// Force limits (hard constraints on the simulation)
+	MANY_BODY_DISTANCE_MIN: 10, // Minimum distance for repulsion calculation
+	MANY_BODY_DISTANCE_MAX: 1000, // Maximum distance for repulsion effect
+	MIN_LINK_DISTANCE: 30, // Minimum edge length (prevents nodes from overlapping)
+	COLLIDE_STRENGTH: 1, // How strongly nodes avoid overlapping (0-1)
 
 	// Initial node positioning
-	INITIAL_SPREAD: 40,
-	FIT_PADDING: 50,
+	INITIAL_SPREAD: 40, // Random spread (px) when nodes start from center
+	FIT_PADDING: 50, // Padding (px) when fitting graph to viewport
 
-	// Viewport
+	// Viewport defaults
 	DEFAULT_WIDTH: 800,
 	DEFAULT_HEIGHT: 600,
 };
 
-// Display settings with defaults
+// Display settings - user-configurable via UI sliders
 interface DisplaySettings {
 	nodeSize: number;
 	linkThickness: number;
@@ -48,7 +60,15 @@ interface DisplaySettings {
 	showOrphans: boolean;
 }
 
-// Force settings with defaults
+/**
+ * Force settings - user-configurable via UI sliders.
+ *
+ * These values are multiplied with PHYSICS constants to produce final d3-force values:
+ *   - centerForce: Pull toward center (0 = none, 1 = strong)
+ *   - repelForce: Push nodes apart (0 = none, higher = stronger repulsion)
+ *   - linkForce: How strongly edges pull connected nodes together (0-2)
+ *   - linkDistance: Target distance between connected nodes (px)
+ */
 interface ForceSettings {
 	centerForce: number;
 	repelForce: number;
@@ -65,10 +85,10 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 };
 
 const DEFAULT_FORCES: ForceSettings = {
-	centerForce: 0.3,
-	repelForce: 4,
-	linkForce: 0.3,
-	linkDistance: 80,
+	centerForce: 0.3, // Moderate pull toward center
+	repelForce: 4, // Results in manyBodyStrength of -240 (4 * 60)
+	linkForce: 0.3, // Results in linkStrength of 0.09 (0.3 * 0.3)
+	linkDistance: 80, // Target 80px between connected nodes
 };
 
 export class SupergraphView extends ItemView {
