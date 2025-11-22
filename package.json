@@ -29,6 +29,8 @@
 	},
 	"dependencies": {
 		"cytoscape": "^3.33.1",
-		"cytoscape-cola": "^2.5.1"
+		"cytoscape-cola": "^2.5.1",
+		"cytoscape-d3-force": "^1.1.4",
+		"d3-force": "^3.0.0"
 	}
 }

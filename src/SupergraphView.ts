@@ -36,9 +36,9 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 
 const DEFAULT_FORCES: ForceSettings = {
 	centerForce: 0.3,
-	repelForce: 30,
-	linkForce: 0.5,
-	linkDistance: 80
+	repelForce: 5,
+	linkForce: 0.3,
+	linkDistance: 50
 };
 
 export class SupergraphView extends ItemView {
@@ -50,7 +50,6 @@ export class SupergraphView extends ItemView {
 	private settingsPanel: HTMLElement | null = null;
 	private display: DisplaySettings = { ...DEFAULT_DISPLAY };
 	private forces: ForceSettings = { ...DEFAULT_FORCES };
-	private centerForceInterval: number | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SupergraphPlugin) {
 		super(leaf);
@@ -111,7 +110,8 @@ export class SupergraphView extends ItemView {
 		const searchInput = searchContainer.createEl('input', {
 			type: 'text',
 			placeholder: 'Search files...',
-			cls: 'settings-search-input'
+			cls: 'settings-search-input',
+			value: this.plugin.settings.fileFilter || ''
 		});
 		searchInput.addEventListener('input', (e) => {
 			this.plugin.settings.fileFilter = (e.target as HTMLInputElement).value;
@@ -233,16 +233,16 @@ export class SupergraphView extends ItemView {
 	private resetSettings(): void {
 		this.display = { ...DEFAULT_DISPLAY };
 		this.forces = { ...DEFAULT_FORCES };
-		this.plugin.settings.fileFilter = '';
+		// Don't clear the search filter - just reset display and force settings
 
-		// Rebuild panel
+		// Rebuild panel to update slider positions
 		if (this.settingsPanel) {
 			this.settingsPanel.empty();
 			this.buildSettingsPanel();
 		}
 
 		this.updateStyles();
-		this.loadGraphData();
+		this.restartLayout();
 	}
 
 	private updateStyles(): void {
@@ -272,10 +272,6 @@ export class SupergraphView extends ItemView {
 
 	async onClose(): Promise<void> {
 		await this.saveGraphState();
-		if (this.centerForceInterval) {
-			window.clearInterval(this.centerForceInterval);
-			this.centerForceInterval = null;
-		}
 		if (this.layout) {
 			this.layout.stop();
 			this.layout = null;
@@ -501,8 +497,8 @@ export class SupergraphView extends ItemView {
 			this.layout.stop();
 		}
 
-		// Calculate edge length based on link distance and link force
-		const edgeLength = this.forces.linkDistance * (1 + (1 - this.forces.linkForce));
+		// Node spacing adds padding around nodes to prevent overlap
+		const nodeSpacing = this.display.nodeSize + this.forces.repelForce;
 
 		this.layout = this.cy.layout({
 			name: 'cola',
@@ -510,58 +506,19 @@ export class SupergraphView extends ItemView {
 			infinite: true,
 			fit: false,
 			randomize: false,
-			nodeSpacing: this.forces.repelForce,
-			edgeLength: edgeLength,
+			nodeSpacing: nodeSpacing,
+			edgeLength: this.forces.linkDistance,
 			handleDisconnected: true,
-			convergenceThreshold: 0.0001,
+			convergenceThreshold: 0.00001,
 			// @ts-ignore - cola specific options
 			avoidOverlap: true,
-			unconstrIter: 20,
+			centerGraph: this.forces.centerForce > 0.5,
+			unconstrIter: 5,
 			userConstIter: 0,
-			allConstIter: 20,
+			allConstIter: 5,
 		} as cytoscape.LayoutOptions);
 
 		this.layout.run();
-
-		// Apply center force as a continuous gravity pull toward center
-		this.applyCenterForce();
-	}
-
-	private applyCenterForce(): void {
-		// Clear any existing interval
-		if (this.centerForceInterval) {
-			window.clearInterval(this.centerForceInterval);
-			this.centerForceInterval = null;
-		}
-
-		if (!this.cy || this.forces.centerForce <= 0.01) return;
-
-		// Get viewport center
-		const extent = this.cy.extent();
-		const centerX = (extent.x1 + extent.x2) / 2;
-		const centerY = (extent.y1 + extent.y2) / 2;
-
-		// Apply gentle pull toward center every frame
-		this.centerForceInterval = window.setInterval(() => {
-			if (!this.cy) {
-				if (this.centerForceInterval) window.clearInterval(this.centerForceInterval);
-				return;
-			}
-
-			const strength = this.forces.centerForce * 0.02; // Very gentle pull
-
-			this.cy.nodes().forEach(node => {
-				const pos = node.position();
-				const dx = centerX - pos.x;
-				const dy = centerY - pos.y;
-
-				// Apply small force toward center
-				node.position({
-					x: pos.x + dx * strength,
-					y: pos.y + dy * strength
-				});
-			});
-		}, 50); // 20fps for smooth but not CPU-intensive animation
 	}
 
 	private async openFile(filePath: string): Promise<void> {
