@@ -41,9 +41,13 @@ Supergraph Plugin Styles
 	align-items: center;
 	justify-content: center;
 	color: var(--text-muted);
-	font-size: 18px;
 	z-index: 10;
 	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.supergraph-settings-toggle svg {
+	width: 18px;
+	height: 18px;
 }
 
 .supergraph-settings-toggle:hover {
@@ -98,13 +102,22 @@ Supergraph Plugin Styles
 	background: none;
 	border: none;
 	cursor: pointer;
-	font-size: 16px;
 	color: var(--text-muted);
 	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 4px;
+}
+
+.settings-reset-btn svg {
+	width: 16px;
+	height: 16px;
 }
 
 .settings-reset-btn:hover {
 	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
 }
 
 /* Search */
@@ -148,8 +161,16 @@ Supergraph Plugin Styles
 }
 
 .settings-section-arrow {
-	font-size: 10px;
-	width: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.settings-section-arrow svg {
+	width: 14px;
+	height: 14px;
 }
 
 .settings-section-content {
@@ -235,11 +256,17 @@ Supergraph Plugin Styles
 	background: none;
 	border: none;
 	cursor: pointer;
-	font-size: 12px;
 	color: var(--text-faint);
-	padding: 2px 4px;
+	padding: 2px;
 	border-radius: 3px;
-	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.settings-slider-reset svg {
+	width: 12px;
+	height: 12px;
 }
 
 .settings-slider-reset:hover {

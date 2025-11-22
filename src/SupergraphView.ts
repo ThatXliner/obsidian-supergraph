@@ -1,4 +1,4 @@
-import { ItemView, TFile, WorkspaceLeaf, debounce } from "obsidian";
+import { ItemView, TFile, WorkspaceLeaf, debounce, setIcon } from "obsidian";
 import cytoscape, { Core, EventObject } from "cytoscape";
 // @ts-ignore - no types available
 import d3Force from "cytoscape-d3-force";
@@ -156,7 +156,7 @@ export class SupergraphView extends ItemView {
 		this.settingsToggle = wrapper.createDiv({
 			cls: "supergraph-settings-toggle is-active",
 		});
-		this.settingsToggle.innerHTML = "⚙";
+		setIcon(this.settingsToggle, "settings");
 		this.settingsToggle.addEventListener("click", () =>
 			this.toggleSettings(),
 		);
@@ -188,24 +188,24 @@ export class SupergraphView extends ItemView {
 		});
 
 		const resetViewBtn = headerActions.createEl("button", {
-			cls: "settings-reset-btn",
+			cls: "settings-reset-btn clickable-icon",
 			attr: { "aria-label": "Reset view" },
 		});
-		resetViewBtn.innerHTML = "&#8962;"; // Home icon
+		setIcon(resetViewBtn, "home");
 		resetViewBtn.addEventListener("click", () => this.resetView());
 
 		const resetSettingsBtn = headerActions.createEl("button", {
-			cls: "settings-reset-btn",
+			cls: "settings-reset-btn clickable-icon",
 			attr: { "aria-label": "Reset settings" },
 		});
-		resetSettingsBtn.innerHTML = "&#8635;"; // Refresh icon
+		setIcon(resetSettingsBtn, "rotate-ccw");
 		resetSettingsBtn.addEventListener("click", () => this.resetSettings());
 
 		const closeBtn = headerActions.createEl("button", {
-			cls: "settings-reset-btn",
+			cls: "settings-reset-btn clickable-icon",
 			attr: { "aria-label": "Close" },
 		});
-		closeBtn.innerHTML = "&#10005;"; // X icon
+		setIcon(closeBtn, "x");
 		closeBtn.addEventListener("click", () => this.toggleSettings());
 
 		// Search
@@ -403,7 +403,7 @@ export class SupergraphView extends ItemView {
 		});
 		const headerEl = section.createDiv({ cls: "settings-section-header" });
 		const arrow = headerEl.createSpan({ cls: "settings-section-arrow" });
-		arrow.innerHTML = expanded ? "&#9662;" : "&#9656;";
+		setIcon(arrow, expanded ? "chevron-down" : "chevron-right");
 		headerEl.createSpan({ text: title });
 
 		const content = section.createDiv({ cls: "settings-section-content" });
@@ -414,7 +414,7 @@ export class SupergraphView extends ItemView {
 		headerEl.addEventListener("click", () => {
 			const isHidden = content.style.display === "none";
 			content.style.display = isHidden ? "block" : "none";
-			arrow.innerHTML = isHidden ? "&#9662;" : "&#9656;";
+			setIcon(arrow, isHidden ? "chevron-down" : "chevron-right");
 		});
 	}
 
@@ -471,10 +471,10 @@ export class SupergraphView extends ItemView {
 
 		// Reset to default button
 		const resetBtn = valueContainer.createEl("button", {
-			cls: "settings-slider-reset",
+			cls: "settings-slider-reset clickable-icon",
 			attr: { "aria-label": "Reset to default" },
 		});
-		resetBtn.innerHTML = "↺";
+		setIcon(resetBtn, "rotate-ccw");
 		resetBtn.addEventListener("click", () => {
 			slider.value = String(defaultValue);
 			valueDisplay.setText(String(defaultValue));
