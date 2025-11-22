@@ -77,8 +77,8 @@ interface ForceSettings {
 }
 
 const DEFAULT_DISPLAY: DisplaySettings = {
-	nodeSize: 10,
-	linkThickness: 1,
+	nodeSize: 15,
+	linkThickness: 0.3,
 	showArrows: false,
 	textFadeThreshold: 0.5,
 	showOrphans: true,
@@ -96,6 +96,7 @@ export class SupergraphView extends ItemView {
 	private plugin: SupergraphPlugin;
 	private graphContainer: HTMLElement | null = null;
 	private saveGraphStateDebounced: () => void;
+	private saveViewSettingsDebounced: () => void;
 	private layout: cytoscape.Layouts | null = null;
 	private settingsPanel: HTMLElement | null = null;
 	private display: DisplaySettings = { ...DEFAULT_DISPLAY };
@@ -108,6 +109,11 @@ export class SupergraphView extends ItemView {
 		this.saveGraphStateDebounced = debounce(
 			() => this.saveGraphState(),
 			500,
+			true,
+		);
+		this.saveViewSettingsDebounced = debounce(
+			() => this.saveViewSettings(),
+			300,
 			true,
 		);
 	}
@@ -125,6 +131,9 @@ export class SupergraphView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		// Load saved view settings first
+		await this.loadViewSettings();
+
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.addClass("supergraph-view-container");
@@ -222,6 +231,7 @@ export class SupergraphView extends ItemView {
 					2,
 					0.1,
 					this.display.textFadeThreshold,
+					DEFAULT_DISPLAY.textFadeThreshold,
 					(val) => {
 						this.display.textFadeThreshold = val;
 						this.updateStyles();
@@ -235,6 +245,7 @@ export class SupergraphView extends ItemView {
 					30,
 					1,
 					this.display.nodeSize,
+					DEFAULT_DISPLAY.nodeSize,
 					(val) => {
 						this.display.nodeSize = val;
 						this.updateStyles();
@@ -244,10 +255,11 @@ export class SupergraphView extends ItemView {
 				this.createSlider(
 					content,
 					"Link thickness",
-					0.5,
+					0.1,
 					5,
-					0.5,
+					0.1,
 					this.display.linkThickness,
+					DEFAULT_DISPLAY.linkThickness,
 					(val) => {
 						this.display.linkThickness = val;
 						this.updateStyles();
@@ -275,6 +287,7 @@ export class SupergraphView extends ItemView {
 					1,
 					0.05,
 					this.forces.centerForce,
+					DEFAULT_FORCES.centerForce,
 					(val) => {
 						this.forces.centerForce = val;
 						this.restartLayout();
@@ -288,6 +301,7 @@ export class SupergraphView extends ItemView {
 					50,
 					1,
 					this.forces.repelForce,
+					DEFAULT_FORCES.repelForce,
 					(val) => {
 						this.forces.repelForce = val;
 						this.restartLayout();
@@ -301,6 +315,7 @@ export class SupergraphView extends ItemView {
 					2,
 					0.1,
 					this.forces.linkForce,
+					DEFAULT_FORCES.linkForce,
 					(val) => {
 						this.forces.linkForce = val;
 						this.restartLayout();
@@ -314,6 +329,7 @@ export class SupergraphView extends ItemView {
 					300,
 					10,
 					this.forces.linkDistance,
+					DEFAULT_FORCES.linkDistance,
 					(val) => {
 						this.forces.linkDistance = val;
 						this.restartLayout();
@@ -379,18 +395,40 @@ export class SupergraphView extends ItemView {
 		max: number,
 		step: number,
 		value: number,
+		defaultValue: number,
 		onChange: (val: number) => void,
 	): void {
 		const row = container.createDiv({
 			cls: "settings-row settings-row-vertical",
 		});
 
-		// Label row with current value
+		// Label row with current value and reset button
 		const labelRow = row.createDiv({ cls: "settings-slider-label-row" });
 		labelRow.createSpan({ text: label, cls: "settings-label" });
-		const valueDisplay = labelRow.createSpan({
+
+		const valueContainer = labelRow.createDiv({
+			cls: "settings-slider-value-container",
+		});
+		const valueDisplay = valueContainer.createSpan({
 			text: String(value),
 			cls: "settings-slider-value",
+		});
+		valueContainer.createSpan({
+			text: ` (${defaultValue})`,
+			cls: "settings-slider-default",
+		});
+
+		// Reset to default button
+		const resetBtn = valueContainer.createEl("button", {
+			cls: "settings-slider-reset",
+			attr: { "aria-label": "Reset to default" },
+		});
+		resetBtn.innerHTML = "↺";
+		resetBtn.addEventListener("click", () => {
+			slider.value = String(defaultValue);
+			valueDisplay.setText(String(defaultValue));
+			onChange(defaultValue);
+			this.saveViewSettings();
 		});
 
 		const slider = row.createEl("input", {
@@ -417,6 +455,7 @@ export class SupergraphView extends ItemView {
 			const newValue = parseFloat((e.target as HTMLInputElement).value);
 			valueDisplay.setText(String(newValue));
 			onChange(newValue);
+			this.saveViewSettings();
 		});
 	}
 
@@ -433,6 +472,7 @@ export class SupergraphView extends ItemView {
 
 		this.updateStyles();
 		this.restartLayout();
+		this.saveViewSettings();
 	}
 
 	private updateStyles(): void {
@@ -806,6 +846,23 @@ export class SupergraphView extends ItemView {
 	private async loadGraphState(): Promise<GraphState | null> {
 		const data = await this.plugin.loadData();
 		return data?.graphState || null;
+	}
+
+	private async saveViewSettings(): Promise<void> {
+		const data = (await this.plugin.loadData()) || {};
+		data.viewSettings = {
+			display: this.display,
+			forces: this.forces,
+		};
+		await this.plugin.saveData(data);
+	}
+
+	private async loadViewSettings(): Promise<void> {
+		const data = await this.plugin.loadData();
+		if (data?.viewSettings) {
+			this.display = { ...DEFAULT_DISPLAY, ...data.viewSettings.display };
+			this.forces = { ...DEFAULT_FORCES, ...data.viewSettings.forces };
+		}
 	}
 
 	async refreshGraph(): Promise<void> {

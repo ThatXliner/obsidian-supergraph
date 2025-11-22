@@ -172,10 +172,38 @@ Supergraph Plugin Styles
 	width: 100%;
 }
 
+.settings-slider-value-container {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
 .settings-slider-value {
 	font-size: 12px;
-	color: var(--text-muted);
+	color: var(--text-normal);
 	font-family: var(--font-monospace);
+}
+
+.settings-slider-default {
+	font-size: 11px;
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+}
+
+.settings-slider-reset {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 12px;
+	color: var(--text-faint);
+	padding: 2px 4px;
+	border-radius: 3px;
+	line-height: 1;
+}
+
+.settings-slider-reset:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
 }
 
 .settings-slider {
