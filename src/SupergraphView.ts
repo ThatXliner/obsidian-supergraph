@@ -1,13 +1,43 @@
-import { ItemView, TFile, WorkspaceLeaf, debounce } from 'obsidian';
-import cytoscape, { Core, EventObject } from 'cytoscape';
+import { ItemView, TFile, WorkspaceLeaf, debounce } from "obsidian";
+import cytoscape, { Core, EventObject } from "cytoscape";
 // @ts-ignore - no types available
-import d3Force from 'cytoscape-d3-force';
-import { GraphState, GraphNode, GraphEdge } from './types';
-import SupergraphPlugin from '../main';
+import d3Force from "cytoscape-d3-force";
+import { GraphState, GraphNode, GraphEdge } from "./types";
+import SupergraphPlugin from "../main";
 
 cytoscape.use(d3Force);
 
-export const VIEW_TYPE_SUPERGRAPH = 'supergraph-view';
+export const VIEW_TYPE_SUPERGRAPH = "supergraph-view";
+
+// Layout physics constants
+const PHYSICS = {
+	// Simulation
+	ALPHA_START: 1,
+	ALPHA_MIN: 0.001,
+	ALPHA_DECAY: 0.01,
+	ALPHA_TARGET: 0.02,
+	VELOCITY_DECAY: 0.4,
+
+	// Force multipliers (applied to user-configurable values)
+	REPEL_MULTIPLIER: 60,
+	CENTER_MULTIPLIER: 0.3,
+	LINK_STRENGTH_MULTIPLIER: 0.3,
+	COLLIDE_RADIUS_MULTIPLIER: 2,
+
+	// Force limits
+	MANY_BODY_DISTANCE_MIN: 10,
+	MANY_BODY_DISTANCE_MAX: 1000,
+	MIN_LINK_DISTANCE: 30,
+	COLLIDE_STRENGTH: 1,
+
+	// Initial node positioning
+	INITIAL_SPREAD: 40,
+	FIT_PADDING: 50,
+
+	// Viewport
+	DEFAULT_WIDTH: 800,
+	DEFAULT_HEIGHT: 600,
+};
 
 // Display settings with defaults
 interface DisplaySettings {
@@ -31,14 +61,14 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 	linkThickness: 1,
 	showArrows: false,
 	textFadeThreshold: 0.5,
-	showOrphans: true
+	showOrphans: true,
 };
 
 const DEFAULT_FORCES: ForceSettings = {
 	centerForce: 0.3,
 	repelForce: 5,
 	linkForce: 0.3,
-	linkDistance: 80
+	linkDistance: 80,
 };
 
 export class SupergraphView extends ItemView {
@@ -55,7 +85,11 @@ export class SupergraphView extends ItemView {
 		super(leaf);
 		this.plugin = plugin;
 		// Debounce save operations to avoid excessive writes
-		this.saveGraphStateDebounced = debounce(() => this.saveGraphState(), 500, true);
+		this.saveGraphStateDebounced = debounce(
+			() => this.saveGraphState(),
+			500,
+			true,
+		);
 	}
 
 	getViewType(): string {
@@ -63,26 +97,26 @@ export class SupergraphView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return 'Supergraph';
+		return "Supergraph";
 	}
 
 	getIcon(): string {
-		return 'git-fork';
+		return "git-fork";
 	}
 
 	async onOpen(): Promise<void> {
 		const container = this.containerEl.children[1];
 		container.empty();
-		container.addClass('supergraph-view-container');
+		container.addClass("supergraph-view-container");
 
 		// Create main wrapper for graph and settings
-		const wrapper = container.createDiv({ cls: 'supergraph-wrapper' });
+		const wrapper = container.createDiv({ cls: "supergraph-wrapper" });
 
 		// Graph canvas
-		this.graphContainer = wrapper.createDiv({ cls: 'supergraph-canvas' });
+		this.graphContainer = wrapper.createDiv({ cls: "supergraph-canvas" });
 
 		// Settings panel (right side)
-		this.settingsPanel = wrapper.createDiv({ cls: 'supergraph-settings' });
+		this.settingsPanel = wrapper.createDiv({ cls: "supergraph-settings" });
 		this.buildSettingsPanel();
 
 		await this.initializeGraph();
@@ -93,139 +127,255 @@ export class SupergraphView extends ItemView {
 		if (!this.settingsPanel) return;
 
 		// Header with reset view and reset settings buttons
-		const header = this.settingsPanel.createDiv({ cls: 'settings-header' });
-		header.createSpan({ text: 'Settings', cls: 'settings-title' });
-		const headerActions = header.createDiv({ cls: 'settings-header-actions' });
+		const header = this.settingsPanel.createDiv({ cls: "settings-header" });
+		header.createSpan({ text: "Settings", cls: "settings-title" });
+		const headerActions = header.createDiv({
+			cls: "settings-header-actions",
+		});
 
-		const resetViewBtn = headerActions.createEl('button', { cls: 'settings-reset-btn', attr: { 'aria-label': 'Reset view' } });
-		resetViewBtn.innerHTML = '&#8962;'; // Home icon
-		resetViewBtn.addEventListener('click', () => this.resetView());
+		const resetViewBtn = headerActions.createEl("button", {
+			cls: "settings-reset-btn",
+			attr: { "aria-label": "Reset view" },
+		});
+		resetViewBtn.innerHTML = "&#8962;"; // Home icon
+		resetViewBtn.addEventListener("click", () => this.resetView());
 
-		const resetSettingsBtn = headerActions.createEl('button', { cls: 'settings-reset-btn', attr: { 'aria-label': 'Reset settings' } });
-		resetSettingsBtn.innerHTML = '&#8635;'; // Refresh icon
-		resetSettingsBtn.addEventListener('click', () => this.resetSettings());
+		const resetSettingsBtn = headerActions.createEl("button", {
+			cls: "settings-reset-btn",
+			attr: { "aria-label": "Reset settings" },
+		});
+		resetSettingsBtn.innerHTML = "&#8635;"; // Refresh icon
+		resetSettingsBtn.addEventListener("click", () => this.resetSettings());
 
 		// Search
-		const searchContainer = this.settingsPanel.createDiv({ cls: 'settings-search' });
-		const searchInput = searchContainer.createEl('input', {
-			type: 'text',
-			placeholder: 'Search files...',
-			cls: 'settings-search-input',
-			value: this.plugin.settings.fileFilter || ''
+		const searchContainer = this.settingsPanel.createDiv({
+			cls: "settings-search",
 		});
-		searchInput.addEventListener('input', (e) => {
-			this.plugin.settings.fileFilter = (e.target as HTMLInputElement).value;
+		const searchInput = searchContainer.createEl("input", {
+			type: "text",
+			placeholder: "Search files...",
+			cls: "settings-search-input",
+			value: this.plugin.settings.fileFilter || "",
+		});
+		searchInput.addEventListener("input", (e) => {
+			this.plugin.settings.fileFilter = (
+				e.target as HTMLInputElement
+			).value;
 			this.loadGraphData();
 		});
 
 		// Filters section
-		this.createCollapsibleSection('Filters', (content) => {
-			this.createToggle(content, 'Orphans', this.display.showOrphans, (val) => {
-				this.display.showOrphans = val;
-				this.loadGraphData();
-			});
-		}, true);
+		this.createCollapsibleSection(
+			"Filters",
+			(content) => {
+				this.createToggle(
+					content,
+					"Orphans",
+					this.display.showOrphans,
+					(val) => {
+						this.display.showOrphans = val;
+						this.loadGraphData();
+					},
+				);
+			},
+			true,
+		);
 
 		// Display section
-		this.createCollapsibleSection('Display', (content) => {
-			this.createToggle(content, 'Arrows', this.display.showArrows, (val) => {
-				this.display.showArrows = val;
-				this.updateStyles();
-			});
+		this.createCollapsibleSection(
+			"Display",
+			(content) => {
+				this.createToggle(
+					content,
+					"Arrows",
+					this.display.showArrows,
+					(val) => {
+						this.display.showArrows = val;
+						this.updateStyles();
+					},
+				);
 
-			this.createSlider(content, 'Text fade threshold', 0, 2, 0.1, this.display.textFadeThreshold, (val) => {
-				this.display.textFadeThreshold = val;
-				this.updateStyles();
-			});
+				this.createSlider(
+					content,
+					"Text fade threshold",
+					0,
+					2,
+					0.1,
+					this.display.textFadeThreshold,
+					(val) => {
+						this.display.textFadeThreshold = val;
+						this.updateStyles();
+					},
+				);
 
-			this.createSlider(content, 'Node size', 3, 30, 1, this.display.nodeSize, (val) => {
-				this.display.nodeSize = val;
-				this.updateStyles();
-			});
+				this.createSlider(
+					content,
+					"Node size",
+					3,
+					30,
+					1,
+					this.display.nodeSize,
+					(val) => {
+						this.display.nodeSize = val;
+						this.updateStyles();
+					},
+				);
 
-			this.createSlider(content, 'Link thickness', 0.5, 5, 0.5, this.display.linkThickness, (val) => {
-				this.display.linkThickness = val;
-				this.updateStyles();
-			});
+				this.createSlider(
+					content,
+					"Link thickness",
+					0.5,
+					5,
+					0.5,
+					this.display.linkThickness,
+					(val) => {
+						this.display.linkThickness = val;
+						this.updateStyles();
+					},
+				);
 
-			// Animate button
-			const animateBtn = content.createEl('button', { text: 'Animate', cls: 'settings-animate-btn' });
-			animateBtn.addEventListener('click', () => this.runLayout());
-		}, true);
+				// Animate button
+				const animateBtn = content.createEl("button", {
+					text: "Animate",
+					cls: "settings-animate-btn",
+				});
+				animateBtn.addEventListener("click", () => this.runLayout());
+			},
+			true,
+		);
 
 		// Forces section
-		this.createCollapsibleSection('Forces', (content) => {
-			this.createSlider(content, 'Center force', 0, 1, 0.05, this.forces.centerForce, (val) => {
-				this.forces.centerForce = val;
-				this.restartLayout();
-			});
+		this.createCollapsibleSection(
+			"Forces",
+			(content) => {
+				this.createSlider(
+					content,
+					"Center force",
+					0,
+					1,
+					0.05,
+					this.forces.centerForce,
+					(val) => {
+						this.forces.centerForce = val;
+						this.restartLayout();
+					},
+				);
 
-			this.createSlider(content, 'Repel force', 0, 200, 5, this.forces.repelForce, (val) => {
-				this.forces.repelForce = val;
-				this.restartLayout();
-			});
+				this.createSlider(
+					content,
+					"Repel force",
+					0,
+					200,
+					5,
+					this.forces.repelForce,
+					(val) => {
+						this.forces.repelForce = val;
+						this.restartLayout();
+					},
+				);
 
-			this.createSlider(content, 'Link force', 0, 2, 0.1, this.forces.linkForce, (val) => {
-				this.forces.linkForce = val;
-				this.restartLayout();
-			});
+				this.createSlider(
+					content,
+					"Link force",
+					0,
+					2,
+					0.1,
+					this.forces.linkForce,
+					(val) => {
+						this.forces.linkForce = val;
+						this.restartLayout();
+					},
+				);
 
-			this.createSlider(content, 'Link distance', 30, 300, 10, this.forces.linkDistance, (val) => {
-				this.forces.linkDistance = val;
-				this.restartLayout();
-			});
-		}, true);
+				this.createSlider(
+					content,
+					"Link distance",
+					30,
+					300,
+					10,
+					this.forces.linkDistance,
+					(val) => {
+						this.forces.linkDistance = val;
+						this.restartLayout();
+					},
+				);
+			},
+			true,
+		);
 	}
 
-	private createCollapsibleSection(title: string, buildContent: (container: HTMLElement) => void, expanded = false): void {
+	private createCollapsibleSection(
+		title: string,
+		buildContent: (container: HTMLElement) => void,
+		expanded = false,
+	): void {
 		if (!this.settingsPanel) return;
 
-		const section = this.settingsPanel.createDiv({ cls: 'settings-section' });
-		const headerEl = section.createDiv({ cls: 'settings-section-header' });
-		const arrow = headerEl.createSpan({ cls: 'settings-section-arrow' });
-		arrow.innerHTML = expanded ? '&#9662;' : '&#9656;';
+		const section = this.settingsPanel.createDiv({
+			cls: "settings-section",
+		});
+		const headerEl = section.createDiv({ cls: "settings-section-header" });
+		const arrow = headerEl.createSpan({ cls: "settings-section-arrow" });
+		arrow.innerHTML = expanded ? "&#9662;" : "&#9656;";
 		headerEl.createSpan({ text: title });
 
-		const content = section.createDiv({ cls: 'settings-section-content' });
-		if (!expanded) content.style.display = 'none';
+		const content = section.createDiv({ cls: "settings-section-content" });
+		if (!expanded) content.style.display = "none";
 
 		buildContent(content);
 
-		headerEl.addEventListener('click', () => {
-			const isHidden = content.style.display === 'none';
-			content.style.display = isHidden ? 'block' : 'none';
-			arrow.innerHTML = isHidden ? '&#9662;' : '&#9656;';
+		headerEl.addEventListener("click", () => {
+			const isHidden = content.style.display === "none";
+			content.style.display = isHidden ? "block" : "none";
+			arrow.innerHTML = isHidden ? "&#9662;" : "&#9656;";
 		});
 	}
 
-	private createToggle(container: HTMLElement, label: string, value: boolean, onChange: (val: boolean) => void): void {
-		const row = container.createDiv({ cls: 'settings-row' });
-		row.createSpan({ text: label, cls: 'settings-label' });
+	private createToggle(
+		container: HTMLElement,
+		label: string,
+		value: boolean,
+		onChange: (val: boolean) => void,
+	): void {
+		const row = container.createDiv({ cls: "settings-row" });
+		row.createSpan({ text: label, cls: "settings-label" });
 
-		const toggle = row.createDiv({ cls: `settings-toggle ${value ? 'is-enabled' : ''}` });
-		const toggleThumb = toggle.createDiv({ cls: 'settings-toggle-thumb' });
+		const toggle = row.createDiv({
+			cls: `settings-toggle ${value ? "is-enabled" : ""}`,
+		});
+		const toggleThumb = toggle.createDiv({ cls: "settings-toggle-thumb" });
 
-		toggle.addEventListener('click', () => {
-			const newVal = !toggle.hasClass('is-enabled');
-			toggle.toggleClass('is-enabled', newVal);
+		toggle.addEventListener("click", () => {
+			const newVal = !toggle.hasClass("is-enabled");
+			toggle.toggleClass("is-enabled", newVal);
 			onChange(newVal);
 		});
 	}
 
-	private createSlider(container: HTMLElement, label: string, min: number, max: number, step: number, value: number, onChange: (val: number) => void): void {
-		const row = container.createDiv({ cls: 'settings-row settings-row-vertical' });
-		row.createSpan({ text: label, cls: 'settings-label' });
+	private createSlider(
+		container: HTMLElement,
+		label: string,
+		min: number,
+		max: number,
+		step: number,
+		value: number,
+		onChange: (val: number) => void,
+	): void {
+		const row = container.createDiv({
+			cls: "settings-row settings-row-vertical",
+		});
+		row.createSpan({ text: label, cls: "settings-label" });
 
-		const slider = row.createEl('input', {
-			type: 'range',
-			cls: 'settings-slider'
+		const slider = row.createEl("input", {
+			type: "range",
+			cls: "settings-slider",
 		});
 		slider.min = String(min);
 		slider.max = String(max);
 		slider.step = String(step);
 		slider.value = String(value);
 
-		slider.addEventListener('input', (e) => {
+		slider.addEventListener("input", (e) => {
 			onChange(parseFloat((e.target as HTMLInputElement).value));
 		});
 	}
@@ -248,17 +398,21 @@ export class SupergraphView extends ItemView {
 	private updateStyles(): void {
 		if (!this.cy) return;
 
-		this.cy.style()
-			.selector('node')
+		this.cy
+			.style()
+			.selector("node")
 			.style({
-				'width': this.display.nodeSize,
-				'height': this.display.nodeSize,
-				'text-opacity': this.cy.zoom() > this.display.textFadeThreshold ? 1 : 0
+				width: this.display.nodeSize,
+				height: this.display.nodeSize,
+				"text-opacity":
+					this.cy.zoom() > this.display.textFadeThreshold ? 1 : 0,
 			})
-			.selector('edge')
+			.selector("edge")
 			.style({
-				'width': this.display.linkThickness,
-				'target-arrow-shape': this.display.showArrows ? 'triangle' : 'none'
+				width: this.display.linkThickness,
+				"target-arrow-shape": this.display.showArrows
+					? "triangle"
+					: "none",
 			})
 			.update();
 	}
@@ -289,59 +443,60 @@ export class SupergraphView extends ItemView {
 			container: this.graphContainer,
 			style: [
 				{
-					selector: 'node',
+					selector: "node",
 					style: {
-						'background-color': 'var(--interactive-accent)',
-						'label': 'data(label)',
-						'width': 10,
-						'height': 10,
-						'font-size': 11,
-						'text-valign': 'bottom',
-						'text-halign': 'center',
-						'text-margin-y': 5,
-						'color': 'var(--text-muted)',
-						'shape': 'ellipse'
-					}
+						"background-color": "var(--interactive-accent)",
+						label: "data(label)",
+						width: 10,
+						height: 10,
+						"font-size": 11,
+						"text-valign": "bottom",
+						"text-halign": "center",
+						"text-margin-y": 5,
+						color: "var(--text-muted)",
+						shape: "ellipse",
+					},
 				},
 				{
-					selector: 'edge',
+					selector: "edge",
 					style: {
-						'width': 2,
-						'line-color': 'var(--background-modifier-border)',
-						'target-arrow-color': 'var(--background-modifier-border)',
-						'target-arrow-shape': 'triangle',
-						'curve-style': 'bezier'
-					}
+						width: 2,
+						"line-color": "var(--background-modifier-border)",
+						"target-arrow-color":
+							"var(--background-modifier-border)",
+						"target-arrow-shape": "triangle",
+						"curve-style": "bezier",
+					},
 				},
 				{
-					selector: 'edge.manual',
+					selector: "edge.manual",
 					style: {
-						'line-color': 'var(--interactive-accent)',
-						'target-arrow-color': 'var(--interactive-accent)',
-						'line-style': 'dashed'
-					}
-				}
+						"line-color": "var(--interactive-accent)",
+						"target-arrow-color": "var(--interactive-accent)",
+						"line-style": "dashed",
+					},
+				},
 			],
 			layout: {
-				name: 'preset'
+				name: "preset",
 			},
-			wheelSensitivity: 0.3
+			wheelSensitivity: 0.3,
 		});
 
 		// Save positions when nodes are dragged (debounced to avoid excessive saves)
-		this.cy.on('dragfree', 'node', () => {
+		this.cy.on("dragfree", "node", () => {
 			this.saveGraphStateDebounced();
 		});
 
 		// Open file on node tap
-		this.cy.on('tap', 'node', (evt: EventObject) => {
+		this.cy.on("tap", "node", (evt: EventObject) => {
 			const node = evt.target;
 			const fileId = node.id();
 			this.openFile(fileId);
 		});
 
 		// Save state on pan (debounced to avoid excessive saves)
-		this.cy.on('pan', () => {
+		this.cy.on("pan", () => {
 			this.saveGraphStateDebounced();
 		});
 	}
@@ -364,15 +519,16 @@ export class SupergraphView extends ItemView {
 				const cache = this.app.metadataCache.getFileCache(file);
 				if (cache?.links) {
 					for (const link of cache.links) {
-						const targetFile = this.app.metadataCache.getFirstLinkpathDest(
-							link.link,
-							file.path
-						);
+						const targetFile =
+							this.app.metadataCache.getFirstLinkpathDest(
+								link.link,
+								file.path,
+							);
 						if (targetFile) {
 							edges.push({
 								id: `${file.path}->${targetFile.path}`,
 								source: file.path,
-								target: targetFile.path
+								target: targetFile.path,
 							});
 						}
 					}
@@ -382,19 +538,21 @@ export class SupergraphView extends ItemView {
 
 		// Load saved state
 		const savedState = await this.loadGraphState();
-		
+
 		// Merge positions from saved state
 		if (savedState) {
-			nodes.forEach(node => {
-				const savedNode = savedState.nodes.find(n => n.id === node.id);
+			nodes.forEach((node) => {
+				const savedNode = savedState.nodes.find(
+					(n) => n.id === node.id,
+				);
 				if (savedNode?.position) {
 					node.position = savedNode.position;
 				}
 			});
 
 			// Add manual edges
-			savedState.edges.forEach(edge => {
-				if (edge.isManual && !edges.find(e => e.id === edge.id)) {
+			savedState.edges.forEach((edge) => {
+				if (edge.isManual && !edges.find((e) => e.id === edge.id)) {
 					edges.push(edge);
 				}
 			});
@@ -420,57 +578,68 @@ export class SupergraphView extends ItemView {
 		return {
 			id: file.path,
 			label: file.basename,
-			snippet: ''
+			snippet: "",
 		};
 	}
 
-	private renderGraph(nodes: GraphNode[], edges: GraphEdge[], savedState: GraphState | null): void {
+	private renderGraph(
+		nodes: GraphNode[],
+		edges: GraphEdge[],
+		savedState: GraphState | null,
+	): void {
 		if (!this.cy) return;
 
 		// Check if all nodes have saved positions
-		const allNodesHavePositions = nodes.length > 0 && nodes.every(n => n.position);
+		const allNodesHavePositions =
+			nodes.length > 0 && nodes.every((n) => n.position);
 
 		// Get center of the viewport for initial positioning
-		const containerWidth = this.graphContainer?.clientWidth || 800;
-		const containerHeight = this.graphContainer?.clientHeight || 600;
+		const containerWidth =
+			this.graphContainer?.clientWidth || PHYSICS.DEFAULT_WIDTH;
+		const containerHeight =
+			this.graphContainer?.clientHeight || PHYSICS.DEFAULT_HEIGHT;
 		const centerX = containerWidth / 2;
 		const centerY = containerHeight / 2;
 
 		const elements = [
-			...nodes.map(node => {
+			...nodes.map((node) => {
 				// If we have saved position, use it. Otherwise start from center with slight random offset
 				let position = node.position;
 				if (!position) {
-					// Small random offset from center (within 20px) for initial "explosion" effect
+					// Small random offset from center for initial "explosion" effect
 					position = {
-						x: centerX + (Math.random() - 0.5) * 40,
-						y: centerY + (Math.random() - 0.5) * 40
+						x:
+							centerX +
+							(Math.random() - 0.5) * PHYSICS.INITIAL_SPREAD,
+						y:
+							centerY +
+							(Math.random() - 0.5) * PHYSICS.INITIAL_SPREAD,
 					};
 				}
 				return {
 					data: {
 						id: node.id,
 						label: node.label,
-						snippet: node.snippet
+						snippet: node.snippet,
 					},
-					position
+					position,
 				};
 			}),
-			...edges.map(edge => ({
+			...edges.map((edge) => ({
 				data: {
 					id: edge.id,
 					source: edge.source,
-					target: edge.target
+					target: edge.target,
 				},
-				classes: edge.isManual ? 'manual' : ''
-			}))
+				classes: edge.isManual ? "manual" : "",
+			})),
 		];
 
 		this.cy.elements().remove();
 		this.cy.add(elements);
 
 		// Enable dragging on all nodes after they are added
-		this.cy.nodes().forEach(node => {
+		this.cy.nodes().forEach((node) => {
 			node.grabify();
 		});
 
@@ -478,11 +647,11 @@ export class SupergraphView extends ItemView {
 			// Restore saved viewport
 			this.cy.viewport({
 				zoom: savedState.zoom,
-				pan: savedState.pan
+				pan: savedState.pan,
 			});
 		} else {
 			// Fit to show all nodes initially
-			this.cy.fit(undefined, 50);
+			this.cy.fit(undefined, PHYSICS.FIT_PADDING);
 		}
 
 		// Always run the continuous force layout
@@ -497,42 +666,54 @@ export class SupergraphView extends ItemView {
 			this.layout.stop();
 		}
 
-		const centerX = (this.graphContainer?.clientWidth || 800) / 2;
-		const centerY = (this.graphContainer?.clientHeight || 600) / 2;
+		const centerX =
+			(this.graphContainer?.clientWidth || PHYSICS.DEFAULT_WIDTH) / 2;
+		const centerY =
+			(this.graphContainer?.clientHeight || PHYSICS.DEFAULT_HEIGHT) / 2;
 
-		// Scale repel force to a negative value for manyBody
-		const repelStrength = -this.forces.repelForce * 30;
-
-		// Minimum link distance to create some "repulsion" on edges
-		const minLinkDistance = Math.max(this.forces.linkDistance, 30);
+		// Calculate forces from user settings and physics constants
+		const repelStrength =
+			-this.forces.repelForce * PHYSICS.REPEL_MULTIPLIER;
+		const linkDistance = Math.max(
+			this.forces.linkDistance,
+			PHYSICS.MIN_LINK_DISTANCE,
+		);
+		const linkStrength =
+			this.forces.linkForce * PHYSICS.LINK_STRENGTH_MULTIPLIER;
+		const centerStrength =
+			this.forces.centerForce * PHYSICS.CENTER_MULTIPLIER;
+		const collideRadius =
+			this.display.nodeSize * PHYSICS.COLLIDE_RADIUS_MULTIPLIER;
 
 		this.layout = this.cy.layout({
-			name: 'd3-force',
+			name: "d3-force",
 			animate: true,
 			fixedAfterDragging: false,
 			ungrabifyWhileSimulating: false,
 			fit: false,
 			// @ts-ignore - d3-force specific options
-			alpha: 1,
-			alphaMin: 0.001,
-			alphaDecay: 0.01,
-			alphaTarget: 0.02,
-			velocityDecay: 0.4,
+			alpha: PHYSICS.ALPHA_START,
+			alphaMin: PHYSICS.ALPHA_MIN,
+			alphaDecay: PHYSICS.ALPHA_DECAY,
+			alphaTarget: PHYSICS.ALPHA_TARGET,
+			velocityDecay: PHYSICS.VELOCITY_DECAY,
 			// Collision force - prevents overlap
-			collideRadius: this.display.nodeSize * 2,
-			collideStrength: 1,
+			collideRadius: collideRadius,
+			collideStrength: PHYSICS.COLLIDE_STRENGTH,
 			// Many-body force - repulsion between all nodes
 			manyBodyStrength: repelStrength,
-			manyBodyDistanceMin: 10,
-			manyBodyDistanceMax: 1000,
-			// Link force - use high strength to enforce distance (acts like spring with min length)
-			linkId: function(d: any) { return d.id; },
-			linkDistance: minLinkDistance,
-			linkStrength: this.forces.linkForce * 0.5,
+			manyBodyDistanceMin: PHYSICS.MANY_BODY_DISTANCE_MIN,
+			manyBodyDistanceMax: PHYSICS.MANY_BODY_DISTANCE_MAX,
+			// Link force - spring with minimum length
+			linkId: function (d: any) {
+				return d.id;
+			},
+			linkDistance: linkDistance,
+			linkStrength: linkStrength,
 			// Center force - pulls toward center
-			xStrength: this.forces.centerForce * 0.3,
+			xStrength: centerStrength,
 			xX: centerX,
-			yStrength: this.forces.centerForce * 0.3,
+			yStrength: centerStrength,
 			yY: centerY,
 		} as cytoscape.LayoutOptions);
 
@@ -553,22 +734,22 @@ export class SupergraphView extends ItemView {
 		const nodes: GraphNode[] = [];
 		const edges: GraphEdge[] = [];
 
-		this.cy.nodes().forEach(node => {
+		this.cy.nodes().forEach((node) => {
 			const pos = node.position();
 			nodes.push({
 				id: node.id(),
-				label: node.data('label'),
-				snippet: node.data('snippet'),
-				position: { x: pos.x, y: pos.y }
+				label: node.data("label"),
+				snippet: node.data("snippet"),
+				position: { x: pos.x, y: pos.y },
 			});
 		});
 
-		this.cy.edges().forEach(edge => {
+		this.cy.edges().forEach((edge) => {
 			edges.push({
 				id: edge.id(),
-				source: edge.data('source'),
-				target: edge.data('target'),
-				isManual: edge.hasClass('manual')
+				source: edge.data("source"),
+				target: edge.data("target"),
+				isManual: edge.hasClass("manual"),
 			});
 		});
 
@@ -576,7 +757,7 @@ export class SupergraphView extends ItemView {
 			nodes,
 			edges,
 			zoom: this.cy.zoom(),
-			pan: this.cy.pan()
+			pan: this.cy.pan(),
 		};
 
 		await this.plugin.saveData({ graphState: state });
