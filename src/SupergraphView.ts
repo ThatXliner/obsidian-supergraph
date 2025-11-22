@@ -747,26 +747,38 @@ export class SupergraphView extends ItemView {
 	private async createNodeFromFile(file: TFile): Promise<GraphNode> {
 		let snippet = "";
 		try {
-			const content = await this.app.vault.cachedRead(file);
-			// Remove frontmatter if present
-			let cleanContent = content;
-			if (cleanContent.startsWith("---")) {
-				const endIndex = cleanContent.indexOf("---", 3);
-				if (endIndex !== -1) {
-					cleanContent = cleanContent.slice(endIndex + 3).trim();
+			// First, check for description in frontmatter
+			const cache = this.app.metadataCache.getFileCache(file);
+			const description = cache?.frontmatter?.description;
+
+			if (description && typeof description === "string") {
+				snippet = description.slice(0, this.display.snippetLength);
+				if (description.length > this.display.snippetLength) {
+					snippet += "...";
 				}
-			}
-			// Remove headings, links, and formatting for cleaner preview
-			cleanContent = cleanContent
-				.replace(/^#+\s+/gm, "") // Remove headings
-				.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1") // Convert [[link]] to text
-				.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Convert [text](url) to text
-				.replace(/[*_~`]/g, "") // Remove formatting
-				.replace(/\n+/g, " ") // Replace newlines with spaces
-				.trim();
-			snippet = cleanContent.slice(0, this.display.snippetLength);
-			if (cleanContent.length > this.display.snippetLength) {
-				snippet += "...";
+			} else {
+				// Fall back to content snippet
+				const content = await this.app.vault.cachedRead(file);
+				// Remove frontmatter if present
+				let cleanContent = content;
+				if (cleanContent.startsWith("---")) {
+					const endIndex = cleanContent.indexOf("---", 3);
+					if (endIndex !== -1) {
+						cleanContent = cleanContent.slice(endIndex + 3).trim();
+					}
+				}
+				// Remove headings, links, and formatting for cleaner preview
+				cleanContent = cleanContent
+					.replace(/^#+\s+/gm, "") // Remove headings
+					.replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, "$1") // Convert [[link]] to text
+					.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Convert [text](url) to text
+					.replace(/[*_~`]/g, "") // Remove formatting
+					.replace(/\n+/g, " ") // Replace newlines with spaces
+					.trim();
+				snippet = cleanContent.slice(0, this.display.snippetLength);
+				if (cleanContent.length > this.display.snippetLength) {
+					snippet += "...";
+				}
 			}
 		} catch (e) {
 			// Ignore read errors, leave snippet empty
