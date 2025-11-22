@@ -92,9 +92,9 @@ export default class SupergraphPlugin extends Plugin {
 			// A leaf with our view already exists, use that
 			leaf = leaves[0];
 		} else {
-			// Our view could not be found in the workspace, create a new leaf
-			leaf = workspace.getRightLeaf(false);
-			await leaf?.setViewState({
+			// Our view could not be found in the workspace, create a new tab
+			leaf = workspace.getLeaf('tab');
+			await leaf.setViewState({
 				type: VIEW_TYPE_SUPERGRAPH,
 				active: true
 			});

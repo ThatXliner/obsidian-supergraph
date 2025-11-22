@@ -256,7 +256,7 @@ export class SupergraphView extends ItemView {
 					snippet: node.snippet,
 					zoom: this.cy?.zoom() || 1
 				},
-				position: node.position
+				...(node.position && { position: node.position })
 			})),
 			...edges.map(edge => ({
 				data: {
