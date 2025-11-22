@@ -85,25 +85,14 @@ export default class SupergraphPlugin extends Plugin {
 	async activateView() {
 		const { workspace } = this.app;
 
-		let leaf: WorkspaceLeaf | null = null;
-		const leaves = workspace.getLeavesOfType(VIEW_TYPE_SUPERGRAPH);
+		// Always create a new tab in the main editor area (like Graph View)
+		const leaf = workspace.getLeaf('tab');
+		await leaf.setViewState({
+			type: VIEW_TYPE_SUPERGRAPH,
+			active: true
+		});
 
-		if (leaves.length > 0) {
-			// A leaf with our view already exists, use that
-			leaf = leaves[0];
-		} else {
-			// Our view could not be found in the workspace, create a new tab
-			leaf = workspace.getLeaf('tab');
-			await leaf.setViewState({
-				type: VIEW_TYPE_SUPERGRAPH,
-				active: true
-			});
-		}
-
-		// Reveal the leaf in case it is in a collapsed sidebar
-		if (leaf) {
-			workspace.revealLeaf(leaf);
-		}
+		workspace.revealLeaf(leaf);
 	}
 
 	refreshAllViews() {

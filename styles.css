@@ -1,10 +1,5 @@
 /*
-
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
+Supergraph Plugin Styles
 */
 
 .supergraph-view-container {
@@ -14,20 +9,217 @@ If your plugin does not need CSS, delete this file.
 	overflow: hidden;
 }
 
-.supergraph-canvas {
+.supergraph-wrapper {
+	display: flex;
 	height: 100%;
 	width: 100%;
+}
+
+.supergraph-canvas {
+	flex: 1;
+	height: 100%;
 	background-color: var(--background-primary);
 }
 
-/* Cytoscape canvas styling */
 .supergraph-canvas canvas {
 	display: block;
 }
 
-/* Override Obsidian default styles to ensure graph is visible */
+/* Settings Panel */
+.supergraph-settings {
+	width: 280px;
+	height: 100%;
+	background-color: var(--background-primary);
+	border-left: 1px solid var(--background-modifier-border);
+	overflow-y: auto;
+	flex-shrink: 0;
+}
+
+.settings-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.settings-title {
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.settings-header-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.settings-reset-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 16px;
+	color: var(--text-muted);
+	padding: 4px;
+}
+
+.settings-reset-btn:hover {
+	color: var(--text-normal);
+}
+
+/* Search */
+.settings-search {
+	padding: 12px 16px;
+}
+
+.settings-search-input {
+	width: 100%;
+	padding: 8px 12px;
+	border-radius: 6px;
+	border: 1px solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: 13px;
+}
+
+.settings-search-input:focus {
+	outline: none;
+	border-color: var(--interactive-accent);
+}
+
+/* Collapsible Sections */
+.settings-section {
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.settings-section-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 16px;
+	cursor: pointer;
+	font-weight: 500;
+	font-size: 13px;
+	color: var(--text-muted);
+}
+
+.settings-section-header:hover {
+	background-color: var(--background-secondary);
+}
+
+.settings-section-arrow {
+	font-size: 10px;
+	width: 12px;
+}
+
+.settings-section-content {
+	padding: 0 16px 16px;
+}
+
+/* Settings Rows */
+.settings-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 0;
+}
+
+.settings-row-vertical {
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+}
+
+.settings-label {
+	font-size: 13px;
+	color: var(--text-normal);
+}
+
+/* Toggle Switch */
+.settings-toggle {
+	width: 44px;
+	height: 24px;
+	background-color: var(--background-modifier-border);
+	border-radius: 12px;
+	cursor: pointer;
+	position: relative;
+	transition: background-color 0.2s ease;
+}
+
+.settings-toggle.is-enabled {
+	background-color: var(--interactive-accent);
+}
+
+.settings-toggle-thumb {
+	width: 20px;
+	height: 20px;
+	background-color: white;
+	border-radius: 50%;
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	transition: transform 0.2s ease;
+}
+
+.settings-toggle.is-enabled .settings-toggle-thumb {
+	transform: translateX(20px);
+}
+
+/* Slider */
+.settings-slider {
+	width: 100%;
+	height: 6px;
+	-webkit-appearance: none;
+	appearance: none;
+	background: var(--background-modifier-border);
+	border-radius: 3px;
+	outline: none;
+}
+
+.settings-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	background: var(--background-primary);
+	border: 2px solid var(--background-modifier-border);
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+.settings-slider::-webkit-slider-thumb:hover {
+	border-color: var(--interactive-accent);
+}
+
+.settings-slider::-moz-range-thumb {
+	width: 18px;
+	height: 18px;
+	background: var(--background-primary);
+	border: 2px solid var(--background-modifier-border);
+	border-radius: 50%;
+	cursor: pointer;
+}
+
+/* Animate Button */
+.settings-animate-btn {
+	width: 100%;
+	padding: 10px 16px;
+	margin-top: 12px;
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border: none;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: opacity 0.2s ease;
+}
+
+.settings-animate-btn:hover {
+	opacity: 0.9;
+}
+
+/* Override Obsidian default styles */
 .workspace-leaf-content[data-type='supergraph-view'] .view-content {
 	padding: 0;
 	height: 100%;
 }
-

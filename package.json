@@ -8,7 +8,12 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": ["obsidian", "graph", "visualization", "cytoscape"],
+	"keywords": [
+		"obsidian",
+		"graph",
+		"visualization",
+		"cytoscape"
+	],
 	"author": "ThatXliner",
 	"license": "MIT",
 	"devDependencies": {
@@ -23,6 +28,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
-		"cytoscape": "^3.33.1"
+		"cytoscape": "^3.33.1",
+		"cytoscape-cola": "^2.5.1"
 	}
 }
