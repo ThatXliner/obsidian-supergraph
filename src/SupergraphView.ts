@@ -1,18 +1,25 @@
-import { ItemView, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, TFile, WorkspaceLeaf, debounce } from 'obsidian';
 import cytoscape, { Core, EventObject } from 'cytoscape';
 import { GraphState, GraphNode, GraphEdge } from './types';
 import SupergraphPlugin from '../main';
 
 export const VIEW_TYPE_SUPERGRAPH = 'supergraph-view';
 
+// Zoom thresholds for label display
+const ZOOM_THRESHOLD_HIDE_LABELS = 0.5;
+const ZOOM_THRESHOLD_SHOW_SNIPPET = 1.0;
+
 export class SupergraphView extends ItemView {
 	private cy: Core | null = null;
 	private plugin: SupergraphPlugin;
 	private graphContainer: HTMLElement | null = null;
+	private saveGraphStateDebounced: () => void;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SupergraphPlugin) {
 		super(leaf);
 		this.plugin = plugin;
+		// Debounce save operations to avoid excessive writes
+		this.saveGraphStateDebounced = debounce(() => this.saveGraphState(), 500, true);
 	}
 
 	getViewType(): string {
@@ -75,9 +82,9 @@ export class SupergraphView extends ItemView {
 					style: {
 						'label': function(ele: cytoscape.NodeSingular) {
 							const zoom = ele.cy().zoom();
-							if (zoom < 0.5) {
+							if (zoom < ZOOM_THRESHOLD_HIDE_LABELS) {
 								return '';
-							} else if (zoom < 1.0) {
+							} else if (zoom < ZOOM_THRESHOLD_SHOW_SNIPPET) {
 								return ele.data('label');
 							} else {
 								return ele.data('label') + '\n' + ele.data('snippet');
@@ -111,14 +118,9 @@ export class SupergraphView extends ItemView {
 			}
 		});
 
-		// Enable dragging
-		this.cy.nodes().forEach(node => {
-			node.grabify();
-		});
-
-		// Save positions when nodes are dragged
+		// Save positions when nodes are dragged (debounced to avoid excessive saves)
 		this.cy.on('dragfree', 'node', () => {
-			this.saveGraphState();
+			this.saveGraphStateDebounced();
 		});
 
 		// Open file on node tap
@@ -137,9 +139,9 @@ export class SupergraphView extends ItemView {
 			}
 		});
 
-		// Save state on pan
+		// Save state on pan (debounced to avoid excessive saves)
 		this.cy.on('pan', () => {
-			this.saveGraphState();
+			this.saveGraphStateDebounced();
 		});
 	}
 
@@ -268,6 +270,11 @@ export class SupergraphView extends ItemView {
 
 		this.cy.elements().remove();
 		this.cy.add(elements);
+
+		// Enable dragging on all nodes after they are added
+		this.cy.nodes().forEach(node => {
+			node.grabify();
+		});
 
 		if (savedState?.zoom && savedState?.pan) {
 			this.cy.viewport({
