@@ -66,7 +66,7 @@ const DEFAULT_DISPLAY: DisplaySettings = {
 
 const DEFAULT_FORCES: ForceSettings = {
 	centerForce: 0.3,
-	repelForce: 5,
+	repelForce: 4,
 	linkForce: 0.3,
 	linkDistance: 80,
 };
@@ -265,8 +265,8 @@ export class SupergraphView extends ItemView {
 					content,
 					"Repel force",
 					0,
-					200,
-					5,
+					50,
+					1,
 					this.forces.repelForce,
 					(val) => {
 						this.forces.repelForce = val;
@@ -364,7 +364,14 @@ export class SupergraphView extends ItemView {
 		const row = container.createDiv({
 			cls: "settings-row settings-row-vertical",
 		});
-		row.createSpan({ text: label, cls: "settings-label" });
+
+		// Label row with current value
+		const labelRow = row.createDiv({ cls: "settings-slider-label-row" });
+		labelRow.createSpan({ text: label, cls: "settings-label" });
+		const valueDisplay = labelRow.createSpan({
+			text: String(value),
+			cls: "settings-slider-value",
+		});
 
 		const slider = row.createEl("input", {
 			type: "range",
@@ -375,8 +382,21 @@ export class SupergraphView extends ItemView {
 		slider.step = String(step);
 		slider.value = String(value);
 
+		// Min/max labels
+		const rangeLabels = row.createDiv({ cls: "settings-slider-range" });
+		rangeLabels.createSpan({
+			text: String(min),
+			cls: "settings-slider-min",
+		});
+		rangeLabels.createSpan({
+			text: String(max),
+			cls: "settings-slider-max",
+		});
+
 		slider.addEventListener("input", (e) => {
-			onChange(parseFloat((e.target as HTMLInputElement).value));
+			const newValue = parseFloat((e.target as HTMLInputElement).value);
+			valueDisplay.setText(String(newValue));
+			onChange(newValue);
 		});
 	}
 
