@@ -527,8 +527,8 @@ export class SupergraphView extends ItemView {
 					style: {
 						"background-color": "var(--interactive-accent)",
 						label: "data(label)",
-						width: 10,
-						height: 10,
+						width: this.display.nodeSize,
+						height: this.display.nodeSize,
 						"font-size": 11,
 						"text-valign": "bottom",
 						"text-halign": "center",
@@ -540,11 +540,13 @@ export class SupergraphView extends ItemView {
 				{
 					selector: "edge",
 					style: {
-						width: 2,
+						width: this.display.linkThickness,
 						"line-color": "var(--background-modifier-border)",
 						"target-arrow-color":
 							"var(--background-modifier-border)",
-						"target-arrow-shape": "triangle",
+						"target-arrow-shape": this.display.showArrows
+							? "triangle"
+							: "none",
 						"curve-style": "bezier",
 					},
 				},
