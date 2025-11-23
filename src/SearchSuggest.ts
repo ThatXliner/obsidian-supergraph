@@ -121,14 +121,14 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 			return PREFIX_SUGGESTIONS;
 		}
 
-		// Handle tag: prefix
+		// Handle tag: prefix - suggest tag values only
 		if (token.startsWith("tag:")) {
 			const tagQuery = token.slice(4).toLowerCase();
 			for (const tag of this.tags) {
 				if (tag.includes(tagQuery)) {
 					suggestions.push({
 						type: "tag",
-						value: `${negationPrefix}tag:${tag}`,
+						value: tag, // Just the tag name, not "tag:xxx"
 						display: `#${tag}`,
 					});
 				}
@@ -137,14 +137,14 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 			return suggestions;
 		}
 
-		// Handle path: prefix
+		// Handle path: prefix - suggest path values only
 		if (token.startsWith("path:")) {
 			const pathQuery = token.slice(5).toLowerCase();
 			for (const path of this.paths) {
 				if (path.toLowerCase().includes(pathQuery)) {
 					suggestions.push({
 						type: "path",
-						value: `${negationPrefix}path:${path}`,
+						value: path, // Just the path, not "path:xxx"
 						display: path,
 					});
 				}
@@ -223,10 +223,36 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 		_evt: MouseEvent | KeyboardEvent,
 	): void {
 		const inputValue = this.textInputEl.value;
-		const { prefix } = this.getCurrentToken(inputValue);
+		const { prefix, token, isNegated } = this.getCurrentToken(inputValue);
+		const negationPrefix = isNegated ? "-" : "";
+
+		let insertValue: string;
+
+		// Reconstruct the full token based on context
+		if (item.type === "tag") {
+			// If we're in a tag: context, preserve it; otherwise add it
+			if (token.startsWith("tag:")) {
+				insertValue = `${negationPrefix}tag:${item.value}`;
+			} else {
+				insertValue = `${negationPrefix}tag:${item.value}`;
+			}
+		} else if (item.type === "path") {
+			// If we're in a path: context, preserve it
+			if (token.startsWith("path:")) {
+				insertValue = `${negationPrefix}path:${item.value}`;
+			} else {
+				insertValue = `${negationPrefix}path:${item.value}`;
+			}
+		} else if (item.type === "file") {
+			// Files get path: prefix
+			insertValue = `${negationPrefix}path:${item.value}`;
+		} else {
+			// Prefixes and other types use value as-is
+			insertValue = `${negationPrefix}${item.value}`;
+		}
 
 		// Replace current token with selected suggestion
-		const newValue = prefix + item.value + " ";
+		const newValue = prefix + insertValue + " ";
 		this.textInputEl.value = newValue;
 		this.setValue(newValue);
 

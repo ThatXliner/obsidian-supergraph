@@ -245,7 +245,7 @@ export class SupergraphView extends ItemView {
 					},
 				);
 			},
-			true,
+			false,
 		);
 
 		// Display section
@@ -330,7 +330,7 @@ export class SupergraphView extends ItemView {
 				});
 				animateBtn.addEventListener("click", () => this.runLayout());
 			},
-			true,
+			false,
 		);
 
 		// Forces section
@@ -393,7 +393,7 @@ export class SupergraphView extends ItemView {
 					},
 				);
 			},
-			true,
+			false,
 		);
 	}
 
