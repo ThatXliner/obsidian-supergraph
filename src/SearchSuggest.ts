@@ -111,24 +111,40 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 		return { prefix, token, isNegated };
 	}
 
+	/**
+	 * Extract the query portion after a prefix like path: or path:"partial
+	 * Handles quoted values: path:"some folder" or path:"some folder
+	 */
+	private extractPrefixQuery(token: string, prefixLen: number): string {
+		let query = token.slice(prefixLen);
+		// Remove leading quote if present (user is typing a quoted value)
+		if (query.startsWith('"')) {
+			query = query.slice(1);
+		}
+		// Remove trailing quote if present
+		if (query.endsWith('"')) {
+			query = query.slice(0, -1);
+		}
+		return query.toLowerCase();
+	}
+
 	getSuggestions(inputValue: string): SuggestionItem[] {
 		const { prefix, token, isNegated } = this.getCurrentToken(inputValue);
 		const suggestions: SuggestionItem[] = [];
-		const negationPrefix = isNegated ? "-" : "";
 
 		// If at start of token or just typed "-", show prefix suggestions
 		if (token === "" || (token === "-" && !isNegated)) {
 			return PREFIX_SUGGESTIONS;
 		}
 
-		// Handle tag: prefix - suggest tag values only
+		// Handle tag: prefix - show all tags, filtered by query
 		if (token.startsWith("tag:")) {
-			const tagQuery = token.slice(4).toLowerCase();
+			const tagQuery = this.extractPrefixQuery(token, 4);
 			for (const tag of this.tags) {
-				if (tag.includes(tagQuery)) {
+				if (tagQuery === "" || tag.includes(tagQuery)) {
 					suggestions.push({
 						type: "tag",
-						value: tag, // Just the tag name, not "tag:xxx"
+						value: tag,
 						display: `#${tag}`,
 					});
 				}
@@ -137,23 +153,34 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 			return suggestions;
 		}
 
-		// Handle path: prefix - suggest path values only
+		// Handle path: prefix - show all paths, filtered by query
 		if (token.startsWith("path:")) {
-			const pathQuery = token.slice(5).toLowerCase();
+			const pathQuery = this.extractPrefixQuery(token, 5);
 			for (const path of this.paths) {
-				if (path.toLowerCase().includes(pathQuery)) {
+				if (pathQuery === "" || path.toLowerCase().includes(pathQuery)) {
 					suggestions.push({
 						type: "path",
-						value: path, // Just the path, not "path:xxx"
+						value: path,
 						display: path,
 					});
 				}
 				if (suggestions.length >= this.limit) break;
 			}
-			return suggestions;
+			// Also suggest file paths
+			for (const [basename, filePath] of this.files) {
+				if (pathQuery === "" || filePath.toLowerCase().includes(pathQuery)) {
+					suggestions.push({
+						type: "file",
+						value: filePath,
+						display: filePath,
+					});
+				}
+				if (suggestions.length >= this.limit) break;
+			}
+			return suggestions.slice(0, this.limit);
 		}
 
-		// Plain text: suggest matching tags and files
+		// Plain text: suggest prefix completions
 		const query = token.toLowerCase();
 
 		// Suggest prefix completions if query matches
@@ -162,10 +189,7 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 				prefixSug.value.startsWith(query) &&
 				prefixSug.value !== query
 			) {
-				suggestions.push({
-					...prefixSug,
-					value: negationPrefix + prefixSug.value,
-				});
+				suggestions.push(prefixSug);
 			}
 		}
 
@@ -174,7 +198,7 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 			if (tag.includes(query)) {
 				suggestions.push({
 					type: "tag",
-					value: `${negationPrefix}tag:${tag}`,
+					value: tag,
 					display: `#${tag}`,
 				});
 			}
@@ -182,11 +206,11 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 		}
 
 		// Suggest matching file names
-		for (const [basename, path] of this.files) {
+		for (const [basename, filePath] of this.files) {
 			if (basename.includes(query)) {
 				suggestions.push({
 					type: "file",
-					value: `${negationPrefix}path:${path}`,
+					value: filePath,
 					display: basename,
 				});
 			}
@@ -232,14 +256,23 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 		// Reconstruct the full token based on context
 		if (item.type === "prefix") {
 			// Prefixes like "tag:", "path:", "-" should not have trailing space
+			// User will continue typing to filter
 			insertValue = `${negationPrefix}${item.value}`;
 			addTrailingSpace = false;
 		} else if (item.type === "tag") {
-			insertValue = `${negationPrefix}tag:${item.value}`;
-		} else if (item.type === "path") {
-			insertValue = `${negationPrefix}path:${item.value}`;
-		} else if (item.type === "file") {
-			insertValue = `${negationPrefix}path:${item.value}`;
+			// Check if we're already in a tag: context
+			if (token.startsWith("tag:")) {
+				insertValue = `${negationPrefix}tag:"${item.value}"`;
+			} else {
+				insertValue = `${negationPrefix}tag:"${item.value}"`;
+			}
+		} else if (item.type === "path" || item.type === "file") {
+			// Check if we're already in a path: context
+			if (token.startsWith("path:")) {
+				insertValue = `${negationPrefix}path:"${item.value}"`;
+			} else {
+				insertValue = `${negationPrefix}path:"${item.value}"`;
+			}
 		} else {
 			insertValue = `${negationPrefix}${item.value}`;
 		}

@@ -23,55 +23,52 @@ export interface SearchTerm {
  *
  * Grammar:
  *   - Space-separated tokens are AND'd together
- *   - `tag:xxx` filters by tag (matches #xxx)
- *   - `path:xxx` filters by file path
+ *   - `tag:xxx` or `tag:"xxx"` filters by tag (matches #xxx)
+ *   - `path:xxx` or `path:"xxx"` filters by file path
  *   - `-xxx` excludes items matching "xxx"
  *   - `-tag:xxx` excludes items with tag #xxx
  *   - `-path:xxx` excludes items in path xxx
  *   - Plain text matches against path + aliases
+ *   - Quoted values preserve spaces: path:"my folder/sub"
  *
  * @example
- * parseQuery("foo tag:project -archive")
+ * parseQuery('foo tag:"my project" -path:"archive"')
  * // Returns:
  * // [
  * //   { type: "text", value: "foo", negated: false },
- * //   { type: "tag", value: "project", negated: false },
- * //   { type: "text", value: "archive", negated: true }
+ * //   { type: "tag", value: "my project", negated: false },
+ * //   { type: "path", value: "archive", negated: true }
  * // ]
  */
 export function parseQuery(query: string): SearchTerm[] {
 	const terms: SearchTerm[] = [];
-	const tokens = query.trim().split(/\s+/).filter(Boolean);
 
-	for (const token of tokens) {
-		let current = token;
-		let negated = false;
+	// Tokenize while respecting quoted strings
+	// Matches: -tag:"value" | tag:"value" | -"value" | "value" | word
+	const tokenRegex = /(-)?(?:(tag|path):)?(?:"([^"]*)"|(\S+))/g;
+	let match;
 
-		// Check for negation prefix
-		if (current.startsWith("-") && current.length > 1) {
-			negated = true;
-			current = current.slice(1);
-		}
+	while ((match = tokenRegex.exec(query)) !== null) {
+		const negated = match[1] === "-";
+		const prefix = match[2]; // "tag" or "path" or undefined
+		const quotedValue = match[3]; // value inside quotes
+		const unquotedValue = match[4]; // value without quotes
 
-		// Check for type prefixes
-		if (current.startsWith("tag:") && current.length > 4) {
-			terms.push({
-				type: "tag",
-				value: current.slice(4).toLowerCase(),
-				negated,
-			});
-		} else if (current.startsWith("path:") && current.length > 5) {
-			terms.push({
-				type: "path",
-				value: current.slice(5).toLowerCase(),
-				negated,
-			});
-		} else if (current.length > 0) {
-			terms.push({
-				type: "text",
-				value: current.toLowerCase(),
-				negated,
-			});
+		let value = (quotedValue !== undefined ? quotedValue : unquotedValue) || "";
+		value = value.toLowerCase();
+
+		if (!value && !prefix) continue;
+
+		if (prefix === "tag") {
+			if (value) {
+				terms.push({ type: "tag", value, negated });
+			}
+		} else if (prefix === "path") {
+			if (value) {
+				terms.push({ type: "path", value, negated });
+			}
+		} else if (value) {
+			terms.push({ type: "text", value, negated });
 		}
 	}
 
