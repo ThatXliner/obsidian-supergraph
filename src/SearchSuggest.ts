@@ -227,32 +227,25 @@ export class SearchSuggest extends AbstractInputSuggest<SuggestionItem> {
 		const negationPrefix = isNegated ? "-" : "";
 
 		let insertValue: string;
+		let addTrailingSpace = true;
 
 		// Reconstruct the full token based on context
-		if (item.type === "tag") {
-			// If we're in a tag: context, preserve it; otherwise add it
-			if (token.startsWith("tag:")) {
-				insertValue = `${negationPrefix}tag:${item.value}`;
-			} else {
-				insertValue = `${negationPrefix}tag:${item.value}`;
-			}
+		if (item.type === "prefix") {
+			// Prefixes like "tag:", "path:", "-" should not have trailing space
+			insertValue = `${negationPrefix}${item.value}`;
+			addTrailingSpace = false;
+		} else if (item.type === "tag") {
+			insertValue = `${negationPrefix}tag:${item.value}`;
 		} else if (item.type === "path") {
-			// If we're in a path: context, preserve it
-			if (token.startsWith("path:")) {
-				insertValue = `${negationPrefix}path:${item.value}`;
-			} else {
-				insertValue = `${negationPrefix}path:${item.value}`;
-			}
+			insertValue = `${negationPrefix}path:${item.value}`;
 		} else if (item.type === "file") {
-			// Files get path: prefix
 			insertValue = `${negationPrefix}path:${item.value}`;
 		} else {
-			// Prefixes and other types use value as-is
 			insertValue = `${negationPrefix}${item.value}`;
 		}
 
 		// Replace current token with selected suggestion
-		const newValue = prefix + insertValue + " ";
+		const newValue = prefix + insertValue + (addTrailingSpace ? " " : "");
 		this.textInputEl.value = newValue;
 		this.setValue(newValue);
 
