@@ -390,3 +390,40 @@ Supergraph Plugin Styles
 	-webkit-line-clamp: 5;
 	-webkit-box-orient: vertical;
 }
+
+/* Search Autocomplete Suggestions */
+.search-suggestion-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.search-suggestion-item:hover,
+.search-suggestion-item.is-selected {
+	background-color: var(--background-secondary);
+}
+
+.search-suggestion-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.search-suggestion-icon svg {
+	width: 14px;
+	height: 14px;
+}
+
+.search-suggestion-text {
+	color: var(--text-normal);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

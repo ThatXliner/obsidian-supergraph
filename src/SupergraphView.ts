@@ -5,6 +5,8 @@ import d3Force from "cytoscape-d3-force";
 // @ts-ignore - no types available
 import nodeHtmlLabel from "cytoscape-node-html-label";
 import { GraphState, GraphNode, GraphEdge } from "./types";
+import { parseQuery, matchesQuery } from "./graphSearch";
+import { SearchSuggest } from "./SearchSuggest";
 import SupergraphPlugin from "../main";
 
 cytoscape.use(d3Force);
@@ -109,6 +111,7 @@ export class SupergraphView extends ItemView {
 	private settingsToggle: HTMLElement | null = null;
 	private display: DisplaySettings = { ...DEFAULT_DISPLAY };
 	private forces: ForceSettings = { ...DEFAULT_FORCES };
+	private searchSuggest: SearchSuggest | null = null;
 
 	constructor(leaf: WorkspaceLeaf, plugin: SupergraphPlugin) {
 		super(leaf);
@@ -208,13 +211,13 @@ export class SupergraphView extends ItemView {
 		setIcon(closeBtn, "x");
 		closeBtn.addEventListener("click", () => this.toggleSettings());
 
-		// Search
+		// Search with autocomplete
 		const searchContainer = this.settingsPanel.createDiv({
 			cls: "settings-search",
 		});
 		const searchInput = searchContainer.createEl("input", {
 			type: "text",
-			placeholder: "Search files...",
+			placeholder: "Search files... (tag:, path:, -)",
 			cls: "settings-search-input",
 			value: this.plugin.settings.fileFilter || "",
 		});
@@ -224,6 +227,9 @@ export class SupergraphView extends ItemView {
 			).value;
 			this.loadGraphData();
 		});
+
+		// Initialize autocomplete suggestions
+		this.searchSuggest = new SearchSuggest(this.app, searchInput);
 
 		// Filters section
 		this.createCollapsibleSection(
@@ -673,6 +679,9 @@ export class SupergraphView extends ItemView {
 		const nodes: GraphNode[] = [];
 		const edges: GraphEdge[] = [];
 
+		// Refresh autocomplete suggestions when graph data reloads
+		this.searchSuggest?.refreshSuggestionData();
+
 		// Create nodes from files (async to load content snippets)
 		const nodePromises: Promise<GraphNode>[] = [];
 		for (const file of files) {
@@ -731,17 +740,27 @@ export class SupergraphView extends ItemView {
 		this.renderGraph(nodes, edges, savedState);
 	}
 
+	/**
+	 * Determine if a file should be included in the graph.
+	 * Approximates Obsidian Graph View filter behavior:
+	 * - Matches against file path, aliases, and tags
+	 * - Case-insensitive substring matching
+	 * - Supports tag:, path:, and negation (-) prefixes
+	 * - Space-separated terms use AND logic
+	 */
 	private shouldIncludeFile(file: TFile): boolean {
 		if (!this.plugin.settings.showAllFiles) {
 			return false;
 		}
 
 		const filter = this.plugin.settings.fileFilter.trim();
-		if (filter && !file.path.toLowerCase().includes(filter.toLowerCase())) {
-			return false;
+		if (!filter) {
+			return true;
 		}
 
-		return true;
+		// Parse and match using Graph View-style query syntax
+		const terms = parseQuery(filter);
+		return matchesQuery(file, terms, this.app);
 	}
 
 	private async createNodeFromFile(file: TFile): Promise<GraphNode> {
